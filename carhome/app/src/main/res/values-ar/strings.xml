@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CarHome</string>
+    <string name="add_app">إضافة تطبيق</string>
+    <string name="change_app">تغيير التطبيق</string>
+    <string name="remove">إزالة</string>
+    <string name="all_apps">كل التطبيقات</string>
+    <string name="settings">الإعدادات</string>
+    <string name="search_apps">ابحث عن تطبيق</string>
+    <string name="choose_app">اختر تطبيقاً</string>
+    <string name="add_to_home">إضافة للشاشة الرئيسية</string>
+    <string name="no_empty_tile">لا توجد خانة فارغة — أزل واحدة أولاً</string>
+    <string name="cant_open">تعذّر فتح هذا التطبيق</string>
+    <string name="nothing_playing">لا يوجد تشغيل</string>
+    <string name="enable_music">السماح بالتحكم بالموسيقى</string>
+    <string name="enable_music_hint">اضغط ليعرض CarHome الأغنية الحالية</string>
+    <string name="weather_off">الطقس يحتاج إذن الموقع</string>
+    <string name="weather_loading">جارٍ جلب الطقس…</string>
+    <string name="tiles">خانات الشاشة الرئيسية</string>
+    <string name="accent">اللون المميز</string>
+    <string name="clock_24h">ساعة ٢٤ ساعة</string>
+    <string name="show_weather">عرض الطقس</string>
+    <string name="set_default">اجعل CarHome الشاشة الرئيسية</string>
+    <string name="music_access">إذن التحكم بالموسيقى</string>
+    <string name="location_access">إذن الموقع (للطقس)</string>
+    <string name="granted">مسموح</string>
+    <string name="not_granted">غير مسموح — اضغط للسماح</string>
+    <string name="back">رجوع</string>
+    <string name="no_apps">لا توجد تطبيقات</string>
+    <string name="hint_tiles">نصيحة: اضغط مطولاً على الخانة لتغييرها أو إزالتها</string>
+
+    <string name="w_clear">صافٍ</string>
+    <string name="w_partly">غائم جزئياً</string>
+    <string name="w_cloudy">غائم</string>
+    <string name="w_fog">ضباب</string>
+    <string name="w_drizzle">رذاذ</string>
+    <string name="w_rain">مطر</string>
+    <string name="w_snow">ثلج</string>
+    <string name="w_storm">عاصفة رعدية</string>
+</resources>

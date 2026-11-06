@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple car-front glyph on the adaptive-icon safe zone (108dp canvas) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M38,44 L42,34 Q43.5,30 48,30 L60,30 Q64.5,30 66,34 L70,44 L72,44 Q76,44 76,48 L76,66 Q76,68 74,68 L70,68 L70,72 Q70,74 68,74 L64,74 Q62,74 62,72 L62,68 L46,68 L46,72 Q46,74 44,74 L40,74 Q38,74 38,72 L38,68 L34,68 Q32,68 32,66 L32,48 Q32,44 36,44 Z M44.5,44 L63.5,44 L60.8,36.6 Q60.2,35 58.5,35 L49.5,35 Q47.8,35 47.2,36.6 Z M40,56 A4,4 0 1,0 40.01,56 Z M68,56 A4,4 0 1,0 68.01,56 Z" />
+</vector>
