@@ -18,6 +18,16 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -40,12 +50,21 @@ class MainActivity : ComponentActivity() {
     // comes back from a system Settings screen
     private val resumeTick = mutableIntStateOf(0)
 
+    // Precise location gives real GPS speed; approximate alone is enough for weather
     private val locationPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) vm.startLocation()
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        if (result.values.any { it }) {
+            vm.startLocation()
+            vm.startSpeed()
+        }
         resumeTick.intValue++
     }
+
+    private val locationPerms = arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,8 +77,10 @@ class MainActivity : ComponentActivity() {
             }
         })
 
-        if (savedInstanceState == null && vm.settings.value.showWeather && !vm.hasLocationPermission()) {
-            locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        val wantsLocation = vm.settings.value.showWeather || vm.settings.value.showSpeed
+        if (savedInstanceState == null && wantsLocation && !vm.hasFineLocation()) {
+            getSharedPreferences("carhome", MODE_PRIVATE).edit().putBoolean("asked_location", true).apply()
+            locationPermission.launch(locationPerms)
         }
 
         setContent {
@@ -69,6 +90,9 @@ class MainActivity : ComponentActivity() {
             val nav by vm.nav.collectAsStateWithLifecycle()
             val weather by vm.weather.collectAsStateWithLifecycle()
             val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
+            val speedMps by vm.speedMps.collectAsStateWithLifecycle()
+            val gpsState by vm.gpsState.collectAsStateWithLifecycle()
+            val overspeed by vm.overspeed.collectAsStateWithLifecycle()
 
             val tick = resumeTick.intValue
             val hasMusic = remember(tick) { MediaService.hasAccess(this) }
@@ -95,6 +119,9 @@ class MainActivity : ComponentActivity() {
                                 hasLocation = hasLocation,
                                 nowPlaying = nowPlaying,
                                 hasMusicAccess = hasMusic,
+                                speedMps = speedMps,
+                                gpsState = gpsState,
+                                overspeed = overspeed,
                                 onTileClick = { index, pkg ->
                                     if (pkg.isEmpty()) vm.pickAppForTile(index) else vm.launchApp(pkg)
                                 },
@@ -139,9 +166,26 @@ class MainActivity : ComponentActivity() {
                                 onUpdate = { block -> vm.updateSettings(block) },
                                 onSetDefault = { openHomeSettings() },
                                 onMusicAccess = { openMusicAccess() },
-                                onLocationAccess = { requestLocation() }
+                                onLocationAccess = { requestLocation() },
+                                onTestAlert = { vm.testAlert() }
                             )
                         }
+                    }
+
+                    // Pulsing red frame around the whole screen while over the limit
+                    if (overspeed) {
+                        val pulse = rememberInfiniteTransition(label = "alert")
+                        val alpha by pulse.animateFloat(
+                            initialValue = 0.35f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(tween(500), RepeatMode.Reverse),
+                            label = "alertAlpha"
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .border(8.dp, Color(0xFFEF4444).copy(alpha = alpha))
+                        )
                     }
                 }
             }
@@ -159,6 +203,17 @@ class MainActivity : ComponentActivity() {
         resumeTick.intValue++
         MediaService.requestRefresh()
         if (vm.settings.value.showWeather) vm.startLocation()
+    }
+
+    // GPS only runs while CarHome is on screen; another app in front stops it
+    override fun onStart() {
+        super.onStart()
+        vm.startSpeed()
+    }
+
+    override fun onStop() {
+        vm.stopSpeed()
+        super.onStop()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -184,15 +239,15 @@ class MainActivity : ComponentActivity() {
     )
 
     private fun requestLocation() {
-        if (vm.hasLocationPermission()) return
+        if (vm.hasFineLocation()) return
         // After "Don't ask again" the system dialog no longer appears — open app info instead
-        if (!shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION) &&
+        if (!shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) &&
             getSharedPreferences("carhome", MODE_PRIVATE).getBoolean("asked_location", false)
         ) {
             tryStart(appDetails())
         } else {
             getSharedPreferences("carhome", MODE_PRIVATE).edit().putBoolean("asked_location", true).apply()
-            locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            locationPermission.launch(locationPerms)
         }
     }
 

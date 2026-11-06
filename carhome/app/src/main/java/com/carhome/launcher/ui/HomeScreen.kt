@@ -1,6 +1,10 @@
 package com.carhome.launcher.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -41,6 +45,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Umbrella
 import androidx.compose.material.icons.rounded.WbCloudy
 import androidx.compose.material.icons.rounded.WbSunny
@@ -62,6 +67,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -70,6 +79,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.carhome.launcher.AppEntry
+import com.carhome.launcher.GpsState
+import com.carhome.launcher.HourForecast
+import com.carhome.launcher.speedInUnit
+import java.util.Calendar
 import com.carhome.launcher.LauncherSettings
 import com.carhome.launcher.NowPlaying
 import com.carhome.launcher.R
@@ -92,6 +105,9 @@ fun HomeScreen(
     hasLocation: Boolean,
     nowPlaying: NowPlaying?,
     hasMusicAccess: Boolean,
+    speedMps: Float?,
+    gpsState: GpsState,
+    overspeed: Boolean,
     onTileClick: (index: Int, pkg: String) -> Unit,
     onTileChange: (index: Int) -> Unit,
     onTileRemove: (index: Int) -> Unit,
@@ -114,13 +130,15 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             ClockCard(use24h = settings.use24h, modifier = Modifier.fillMaxWidth())
-            if (settings.showWeather) {
-                WeatherCard(
-                    weather = weather,
-                    hasLocation = hasLocation,
+            if (settings.showSpeed) {
+                SpeedCard(
+                    speedMps = speedMps,
+                    gpsState = gpsState,
+                    settings = settings,
+                    overspeed = overspeed,
                     accent = accent,
-                    onRequestLocation = onRequestLocation,
-                    modifier = Modifier.fillMaxWidth()
+                    onRequestPermission = onRequestLocation,
+                    modifier = Modifier.fillMaxWidth().weight(1f)
                 )
             }
             MusicCard(
@@ -146,14 +164,25 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.hint_tiles),
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+                if (settings.showWeather) {
+                    WeatherStrip(
+                        weather = weather,
+                        hasLocation = hasLocation,
+                        use24h = settings.use24h,
+                        accent = accent,
+                        onRequestLocation = onRequestLocation,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.hint_tiles),
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 GlassIconButton(Icons.Rounded.Apps, stringResource(R.string.all_apps), onOpenApps)
                 GlassIconButton(Icons.Rounded.Settings, stringResource(R.string.settings), onOpenSettings)
             }
@@ -215,39 +244,161 @@ private fun weatherIcon(kind: WeatherKind, isDay: Boolean): ImageVector = when (
     WeatherKind.STORM -> Icons.Rounded.FlashOn
 }
 
+private fun hourLabel(hour: Int, use24h: Boolean): String {
+    val cal = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, 0)
+    }
+    return SimpleDateFormat(if (use24h) "HH:mm" else "h a", Locale.getDefault()).format(cal.time)
+}
+
+/** Current weather plus the next 5 hours, as one glass pill across the top. */
 @Composable
-private fun WeatherCard(
+private fun WeatherStrip(
     weather: WeatherInfo?,
     hasLocation: Boolean,
+    use24h: Boolean,
     accent: Color,
     onRequestLocation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
-            .glass()
+            .height(64.dp)
+            .glass(RoundedCornerShape(32.dp))
             .let { if (!hasLocation) it.clickable(onClick = onRequestLocation) else it }
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         when {
             !hasLocation -> {
-                Icon(Icons.Rounded.LocationOn, null, tint = accent, modifier = Modifier.size(28.dp))
-                Spacer(Modifier.width(14.dp))
-                Text(stringResource(R.string.weather_off), color = TextSecondary, fontSize = 15.sp)
+                Icon(Icons.Rounded.LocationOn, null, tint = accent, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.weather_off), color = TextSecondary, fontSize = 15.sp, maxLines = 1)
             }
             weather == null -> {
-                Icon(Icons.Rounded.Cloud, null, tint = TextSecondary, modifier = Modifier.size(28.dp))
-                Spacer(Modifier.width(14.dp))
-                Text(stringResource(R.string.weather_loading), color = TextSecondary, fontSize = 15.sp)
+                Icon(Icons.Rounded.Cloud, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.weather_loading), color = TextSecondary, fontSize = 15.sp, maxLines = 1)
             }
             else -> {
                 val kind = weatherKind(weather.code)
-                Icon(weatherIcon(kind, weather.isDay), null, tint = accent, modifier = Modifier.size(40.dp))
-                Spacer(Modifier.width(16.dp))
-                Text("${weather.temperatureC.roundToInt()}°", fontSize = 36.sp, fontWeight = FontWeight.Light, color = TextPrimary)
-                Spacer(Modifier.width(14.dp))
-                Text(stringResource(kind.label), fontSize = 16.sp, color = TextSecondary)
+                Icon(weatherIcon(kind, weather.isDay), null, tint = accent, modifier = Modifier.size(32.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("${weather.temperatureC.roundToInt()}°", fontSize = 28.sp, fontWeight = FontWeight.Light, color = TextPrimary)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(kind.label), fontSize = 14.sp, color = TextSecondary,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
+                )
+                if (weather.nextHours.isNotEmpty()) {
+                    Spacer(Modifier.width(14.dp))
+                    Box(Modifier.width(1.dp).height(34.dp).background(GlassStroke))
+                    Spacer(Modifier.width(6.dp))
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        weather.nextHours.forEach { h -> HourCell(h, use24h) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HourCell(h: HourForecast, use24h: Boolean) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(hourLabel(h.hour, use24h), fontSize = 11.sp, color = TextSecondary, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(weatherIcon(weatherKind(h.code), h.isDay), null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(3.dp))
+            Text("${h.temperatureC.roundToInt()}°", fontSize = 14.sp, color = TextPrimary)
+        }
+    }
+}
+
+// ── Speed ─────────────────────────────────────────────────────────────────────
+
+private val AlertRed = Color(0xFFEF4444)
+
+/** Live GPS speed with a 270° arc gauge; turns red while over the alert limit. */
+@Composable
+private fun SpeedCard(
+    speedMps: Float?,
+    gpsState: GpsState,
+    settings: LauncherSettings,
+    overspeed: Boolean,
+    accent: Color,
+    onRequestPermission: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bg by animateColorAsState(if (overspeed) AlertRed.copy(alpha = 0.28f) else Color.Transparent, label = "overBg")
+    Box(
+        modifier = modifier
+            .glass()
+            .background(bg)
+            .let { if (gpsState == GpsState.NO_PERMISSION) it.clickable(onClick = onRequestPermission) else it }
+            .padding(14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        when (gpsState) {
+            GpsState.NO_PERMISSION -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Rounded.Speed, null, tint = accent, modifier = Modifier.size(40.dp))
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.speed_needs_gps), color = TextSecondary, fontSize = 15.sp)
+            }
+            GpsState.NO_HARDWARE -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Rounded.Speed, null, tint = TextSecondary, modifier = Modifier.size(40.dp))
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.no_gps_hw), color = TextSecondary, fontSize = 15.sp)
+            }
+            else -> {
+                val value = speedMps?.let { speedInUnit(it, settings.useKmh) }
+                val shown by animateFloatAsState(value ?: 0f, tween(700), label = "speed")
+                val maxScale = if (settings.useKmh) 200f else 130f
+                val arcColor = if (overspeed) AlertRed else accent
+                val unit = stringResource(if (settings.useKmh) R.string.kmh else R.string.mph)
+
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val stroke = 10.dp.toPx()
+                    val d = minOf(size.width, size.height) - stroke
+                    val topLeft = Offset((size.width - d) / 2f, (size.height - d) / 2f)
+                    val arcSize = Size(d, d)
+                    drawArc(
+                        color = Color.White.copy(alpha = 0.08f), startAngle = 135f, sweepAngle = 270f,
+                        useCenter = false, topLeft = topLeft, size = arcSize,
+                        style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    )
+                    val frac = (shown / maxScale).coerceIn(0f, 1f)
+                    if (frac > 0f) {
+                        drawArc(
+                            color = arcColor, startAngle = 135f, sweepAngle = 270f * frac,
+                            useCenter = false, topLeft = topLeft, size = arcSize,
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = if (value == null) "—" else shown.roundToInt().toString(),
+                        fontSize = 54.sp,
+                        fontWeight = FontWeight.Light,
+                        color = if (overspeed) AlertRed else TextPrimary,
+                        lineHeight = 56.sp
+                    )
+                    Text(unit, fontSize = 15.sp, color = TextSecondary)
+                    when {
+                        value == null ->
+                            Text(stringResource(R.string.waiting_gps), fontSize = 12.sp, color = TextSecondary)
+                        overspeed ->
+                            Text(stringResource(R.string.over_limit), fontSize = 13.sp, color = AlertRed, fontWeight = FontWeight.SemiBold)
+                        settings.speedAlert ->
+                            Text(stringResource(R.string.limit_short, settings.speedLimit), fontSize = 12.sp, color = TextSecondary)
+                    }
+                }
             }
         }
     }

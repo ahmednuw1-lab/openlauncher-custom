@@ -8,10 +8,18 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 
-data class WeatherInfo(
+data class HourForecast(
+    val hour: Int,          // 0..23, local time at the car's location
     val temperatureC: Double,
     val code: Int,
     val isDay: Boolean
+)
+
+data class WeatherInfo(
+    val temperatureC: Double,
+    val code: Int,
+    val isDay: Boolean,
+    val nextHours: List<HourForecast> = emptyList()
 )
 
 enum class WeatherKind(@StringRes val label: Int) {
@@ -44,7 +52,9 @@ suspend fun fetchWeather(lat: Double, lon: Double): WeatherInfo? = withContext(D
         val url = URL(
             String.format(
                 Locale.US,
-                "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current_weather=true",
+                "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f" +
+                    "&current_weather=true&hourly=temperature_2m,weather_code,is_day" +
+                    "&forecast_days=2&timezone=auto",
                 lat, lon
             )
         )
@@ -54,14 +64,42 @@ suspend fun fetchWeather(lat: Double, lon: Double): WeatherInfo? = withContext(D
             conn.readTimeout = 10_000
             if (conn.responseCode != 200) return@runCatching null
             val body = conn.inputStream.bufferedReader().use { it.readText() }
-            val cw = JSONObject(body).getJSONObject("current_weather")
+            val root = JSONObject(body)
+            val cw = root.getJSONObject("current_weather")
             WeatherInfo(
                 temperatureC = cw.getDouble("temperature"),
                 code = cw.getInt("weathercode"),
-                isDay = cw.optInt("is_day", 1) == 1
+                isDay = cw.optInt("is_day", 1) == 1,
+                nextHours = parseNextHours(root, cw.optString("time", ""))
             )
         } finally {
             conn.disconnect()
         }
     }.getOrNull()
 }
+
+/**
+ * The 5 hourly slots after the current time. With timezone=auto every time is a
+ * local "yyyy-MM-ddTHH:mm" string, so plain string comparison orders them.
+ */
+private fun parseNextHours(root: JSONObject, nowTime: String, count: Int = 5): List<HourForecast> =
+    runCatching {
+        val hourly = root.getJSONObject("hourly")
+        val times = hourly.getJSONArray("time")
+        val temps = hourly.getJSONArray("temperature_2m")
+        val codes = hourly.getJSONArray("weather_code")
+        val days = hourly.optJSONArray("is_day")
+        val out = mutableListOf<HourForecast>()
+        for (i in 0 until times.length()) {
+            val t = times.getString(i)
+            if (t <= nowTime) continue
+            out += HourForecast(
+                hour = t.substring(11, 13).toInt(),
+                temperatureC = temps.getDouble(i),
+                code = codes.getInt(i),
+                isDay = (days?.optInt(i, 1) ?: 1) == 1
+            )
+            if (out.size >= count) break
+        }
+        out.toList()
+    }.getOrDefault(emptyList())

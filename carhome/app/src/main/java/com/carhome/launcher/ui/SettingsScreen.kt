@@ -20,7 +20,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocationOn
@@ -41,6 +44,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.carhome.launcher.ACCENTS
+import com.carhome.launcher.AlertMode
+import com.carhome.launcher.SPEED_LIMIT_MAX
+import com.carhome.launcher.SPEED_LIMIT_MIN
+import com.carhome.launcher.SPEED_MARGINS
 import com.carhome.launcher.LauncherSettings
 import com.carhome.launcher.R
 import com.carhome.launcher.TILE_COUNTS
@@ -55,7 +62,8 @@ fun SettingsScreen(
     onUpdate: ((LauncherSettings) -> LauncherSettings) -> Unit,
     onSetDefault: () -> Unit,
     onMusicAccess: () -> Unit,
-    onLocationAccess: () -> Unit
+    onLocationAccess: () -> Unit,
+    onTestAlert: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -112,6 +120,9 @@ fun SettingsScreen(
                 }
                 ToggleRow(stringResource(R.string.clock_24h), settings.use24h, accent) { v -> onUpdate { it.copy(use24h = v) } }
                 ToggleRow(stringResource(R.string.show_weather), settings.showWeather, accent) { v -> onUpdate { it.copy(showWeather = v) } }
+                ToggleRow(stringResource(R.string.show_speed), settings.showSpeed, accent) { v -> onUpdate { it.copy(showSpeed = v) } }
+                ToggleRow(stringResource(R.string.speed_kmh), settings.useKmh, accent) { v -> onUpdate { it.copy(useKmh = v) } }
+                Text(stringResource(R.string.hint_tiles), fontSize = 13.sp, color = TextSecondary, modifier = Modifier.padding(horizontal = 8.dp))
             }
 
             // ── Permissions ─────────────────────────────────────────────────
@@ -119,6 +130,7 @@ fun SettingsScreen(
                 modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                SpeedAlertSection(settings, accent, onUpdate, onTestAlert)
                 ActionRow(Icons.Rounded.Home, stringResource(R.string.set_default), null, accent, onSetDefault)
                 ActionRow(Icons.Rounded.MusicNote, stringResource(R.string.music_access), hasMusicAccess, accent, onMusicAccess)
                 ActionRow(Icons.Rounded.LocationOn, stringResource(R.string.location_access), hasLocation, accent, onLocationAccess)
@@ -182,5 +194,125 @@ private fun ActionRow(icon: ImageVector, label: String, granted: Boolean?, accen
                 tint = if (granted) Color(0xFF22C55E) else Color(0xFFF59E0B)
             )
         }
+    }
+}
+
+// ── Speed alert controls ──────────────────────────────────────────────────────
+
+@Composable
+private fun SpeedAlertSection(
+    settings: LauncherSettings,
+    accent: Color,
+    onUpdate: ((LauncherSettings) -> LauncherSettings) -> Unit,
+    onTestAlert: () -> Unit
+) {
+    val unit = stringResource(if (settings.useKmh) R.string.kmh else R.string.mph)
+    Section(stringResource(R.string.speed_alert)) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // On / off
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onUpdate { it.copy(speedAlert = !it.speedAlert) } },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.speed_alert_on), fontSize = 17.sp, color = TextPrimary, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = settings.speedAlert,
+                    onCheckedChange = { v -> onUpdate { it.copy(speedAlert = v) } },
+                    colors = SwitchDefaults.colors(checkedTrackColor = accent, checkedThumbColor = Color.White)
+                )
+            }
+
+            if (settings.speedAlert) {
+                // Limit stepper
+                Text(stringResource(R.string.speed_limit), fontSize = 14.sp, color = TextSecondary)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    GlassIconButton(Icons.Rounded.Remove, "-", onClick = {
+                        onUpdate { it.copy(speedLimit = (it.speedLimit - 5).coerceAtLeast(SPEED_LIMIT_MIN)) }
+                    })
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text("${settings.speedLimit}", fontSize = 40.sp, fontWeight = FontWeight.Light, color = TextPrimary)
+                        Spacer(Modifier.width(6.dp))
+                        Text(unit, fontSize = 15.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
+                    }
+                    GlassIconButton(Icons.Rounded.Add, "+", onClick = {
+                        onUpdate { it.copy(speedLimit = (it.speedLimit + 5).coerceAtMost(SPEED_LIMIT_MAX)) }
+                    })
+                }
+
+                // Alert type
+                Text(stringResource(R.string.alert_type), fontSize = 14.sp, color = TextSecondary)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        AlertMode.SCREEN to R.string.alert_screen,
+                        AlertMode.BEEP_ONCE to R.string.alert_beep_once,
+                        AlertMode.BEEP_REPEAT to R.string.alert_beep_repeat
+                    ).forEach { (mode, label) ->
+                        ChoiceRow(stringResource(label), settings.alertMode == mode, accent) {
+                            onUpdate { it.copy(alertMode = mode) }
+                        }
+                    }
+                }
+
+                // Grace margin
+                Text(stringResource(R.string.grace_margin), fontSize = 14.sp, color = TextSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SPEED_MARGINS.forEach { m ->
+                        val selected = settings.speedMargin == m
+                        Box(
+                            modifier = Modifier
+                                .size(width = 84.dp, height = 48.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (selected) accent else GlassFill)
+                                .border(1.dp, if (selected) Color.Transparent else GlassStroke, RoundedCornerShape(16.dp))
+                                .clickable { onUpdate { it.copy(speedMargin = m) } },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(if (m == 0) "0" else "+$m", fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                                color = if (selected) Color.White else TextPrimary)
+                        }
+                    }
+                }
+
+                // Preview
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(accent.copy(alpha = 0.18f))
+                        .clickable(onClick = onTestAlert)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.NotificationsActive, null, tint = accent, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(stringResource(R.string.test_alert), fontSize = 16.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChoiceRow(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) accent.copy(alpha = 0.18f) else Color.Transparent)
+            .border(1.dp, if (selected) accent else GlassStroke, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .border(2.dp, if (selected) accent else TextSecondary, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) Box(Modifier.size(12.dp).clip(CircleShape).background(accent))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(label, fontSize = 16.sp, color = TextPrimary)
     }
 }

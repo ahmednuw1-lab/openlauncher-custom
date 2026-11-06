@@ -29,6 +29,28 @@
     <string name="no_apps">No apps found</string>
     <string name="hint_tiles">Tip: long-press a tile to change or remove it</string>
 
+    <string name="speed">Speed</string>
+    <string name="speed_needs_gps">Tap to allow GPS for live speed</string>
+    <string name="no_gps_hw">No GPS on this device</string>
+    <string name="waiting_gps">Waiting for GPS…</string>
+    <string name="kmh">km/h</string>
+    <string name="mph">mph</string>
+    <string name="show_speed">Show live speed</string>
+    <string name="speed_kmh">Speed in km/h (off = mph)</string>
+
+    <string name="speed_alert">Speed alert</string>
+    <string name="speed_alert_on">Alert me when I go over the limit</string>
+    <string name="speed_limit">Speed limit</string>
+    <string name="alert_type">Alert type</string>
+    <string name="alert_screen">Screen only</string>
+    <string name="alert_beep_once">Screen + one beep</string>
+    <string name="alert_beep_repeat">Screen + beep every 10 s</string>
+    <string name="grace_margin">Grace margin</string>
+    <string name="test_alert">Test alert</string>
+    <string name="over_limit">Over the limit</string>
+    <string name="limit_short">Limit %1$d</string>
+    <string name="forecast_now">Now</string>
+
     <string name="w_clear">Clear</string>
     <string name="w_partly">Partly cloudy</string>
     <string name="w_cloudy">Cloudy</string>

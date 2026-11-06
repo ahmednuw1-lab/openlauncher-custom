@@ -29,6 +29,28 @@
     <string name="no_apps">لا توجد تطبيقات</string>
     <string name="hint_tiles">نصيحة: اضغط مطولاً على الخانة لتغييرها أو إزالتها</string>
 
+    <string name="speed">السرعة</string>
+    <string name="speed_needs_gps">اضغط للسماح بالـ GPS لعرض السرعة</string>
+    <string name="no_gps_hw">هذا الجهاز لا يحتوي على GPS</string>
+    <string name="waiting_gps">بانتظار إشارة GPS…</string>
+    <string name="kmh">كم/س</string>
+    <string name="mph">ميل/س</string>
+    <string name="show_speed">عرض السرعة المباشرة</string>
+    <string name="speed_kmh">السرعة بالكيلومتر (إيقاف = ميل)</string>
+
+    <string name="speed_alert">تنبيه السرعة</string>
+    <string name="speed_alert_on">نبّهني عند تجاوز الحد</string>
+    <string name="speed_limit">حد السرعة</string>
+    <string name="alert_type">نوع التنبيه</string>
+    <string name="alert_screen">على الشاشة فقط</string>
+    <string name="alert_beep_once">الشاشة + صافرة مرة واحدة</string>
+    <string name="alert_beep_repeat">الشاشة + صافرة كل ١٠ ثوانٍ</string>
+    <string name="grace_margin">هامش التجاوز</string>
+    <string name="test_alert">تجربة التنبيه</string>
+    <string name="over_limit">تجاوزت الحد</string>
+    <string name="limit_short">الحد %1$d</string>
+    <string name="forecast_now">الآن</string>
+
     <string name="w_clear">صافٍ</string>
     <string name="w_partly">غائم جزئياً</string>
     <string name="w_cloudy">غائم</string>

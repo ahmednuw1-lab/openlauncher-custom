@@ -13,13 +13,31 @@ android {
         applicationId = "com.carhome.launcher"
         minSdk        = 26
         targetSdk     = 36
-        versionCode   = 1
-        versionName   = "1.0"
+        versionCode   = 2
+        versionName   = "1.1"
+    }
+
+    // One fixed key for every build. GitHub's runners create a new random debug
+    // key each run, and Android refuses to update an app signed with a different
+    // key — so without this every update would need an uninstall first.
+    // (Private repo, personal app: the simple stored password is acceptable.)
+    signingConfigs {
+        create("shared") {
+            storeFile     = file("signing/carhome-signing.p12")
+            storeType     = "pkcs12"
+            storePassword = "carhome"
+            keyAlias      = "carhome"
+            keyPassword   = "carhome"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("shared")
         }
     }
 

@@ -11,8 +11,11 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Bundle
 import android.os.Looper
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -35,6 +38,11 @@ data class AppEntry(
 )
 
 enum class Page { HOME, APPS, SETTINGS }
+
+enum class GpsState { NO_PERMISSION, NO_HARDWARE, SEARCHING, OK }
+
+/** Converts metres/second to the user's unit. */
+fun speedInUnit(mps: Float, useKmh: Boolean): Float = if (useKmh) mps * 3.6f else mps * 2.23694f
 
 /** Which page is showing; [pickTile] >= 0 means the app list is choosing an app for that tile. */
 data class Nav(val page: Page = Page.HOME, val pickTile: Int = -1)
@@ -86,7 +94,13 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     // ── Settings ─────────────────────────────────────────────────────────────
     fun updateSettings(block: (LauncherSettings) -> LauncherSettings) {
         val old = _settings.value
-        val new = block(old)
+        var new = block(old)
+        if (new.useKmh != old.useKmh) {
+            // Keep the same real-world limit when switching km/h ↔ mph (rounded to 5)
+            val factor = if (new.useKmh) 1.609344f else 1f / 1.609344f
+            val converted = (Math.round(new.speedLimit * factor / 5f) * 5).coerceIn(SPEED_LIMIT_MIN, SPEED_LIMIT_MAX)
+            new = new.copy(speedLimit = converted)
+        }
         _settings.value = new
         prefs.saveSettings(new)
         if (new.tileCount != old.tileCount) {
@@ -97,6 +111,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             prefs.saveTiles(resized)
         }
         if (new.showWeather && !old.showWeather) startLocation()
+        if (new.showSpeed && !old.showSpeed) startSpeed()
+        if (!new.showSpeed && old.showSpeed) stopSpeed()
     }
 
     // ── Apps ─────────────────────────────────────────────────────────────────
@@ -195,7 +211,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         override fun onProviderDisabled(provider: String) {}
     }
 
-    fun hasLocationPermission(): Boolean = ContextCompat.checkSelfPermission(
+    fun hasLocationPermission(): Boolean = hasFineLocation() || ContextCompat.checkSelfPermission(
         getApplication<Application>(), Manifest.permission.ACCESS_COARSE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
@@ -239,9 +255,141 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ── Live GPS speed ───────────────────────────────────────────────────────
+    private val _speedMps = MutableStateFlow<Float?>(null)
+    /** Current speed in m/s, or null when there is no recent GPS fix. */
+    val speedMps: StateFlow<Float?> = _speedMps.asStateFlow()
+
+    private val _gpsState = MutableStateFlow(GpsState.NO_PERMISSION)
+    val gpsState: StateFlow<GpsState> = _gpsState.asStateFlow()
+
+    private var speedStarted = false
+    private var lastFix: Location? = null
+    @Volatile private var lastFixAt = 0L
+
+    private val speedListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            val prev = lastFix
+            val raw = when {
+                location.hasSpeed() -> location.speed
+                // Some GPS chips report no speed: derive it from consecutive fixes
+                prev != null && location.time > prev.time ->
+                    prev.distanceTo(location) / ((location.time - prev.time) / 1000f)
+                else -> 0f
+            }.coerceAtLeast(0f)
+            lastFix = location
+            lastFixAt = SystemClock.elapsedRealtime()
+            // Light smoothing, and treat GPS jitter under ~2 km/h as standing still
+            val smoothed = (_speedMps.value?.let { it * 0.35f + raw * 0.65f } ?: raw)
+            _speedMps.value = if (smoothed < 0.55f) 0f else smoothed
+            _gpsState.value = GpsState.OK
+            // A precise fix is also good for the weather
+            if (lastLocation == null) { lastLocation = location; refreshWeatherSoon() }
+        }
+        @Deprecated("Deprecated in Java")
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {
+            _speedMps.value = null
+            _gpsState.value = GpsState.SEARCHING
+        }
+    }
+
+    fun hasFineLocation(): Boolean = ContextCompat.checkSelfPermission(
+        getApplication<Application>(), Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
+    @SuppressLint("MissingPermission")
+    fun startSpeed() {
+        if (speedStarted || !_settings.value.showSpeed) return
+        if (!hasFineLocation()) { _gpsState.value = GpsState.NO_PERMISSION; return }
+        val hasGps = runCatching { locationManager.allProviders.contains(LocationManager.GPS_PROVIDER) }.getOrDefault(false)
+        if (!hasGps) { _gpsState.value = GpsState.NO_HARDWARE; return }
+        speedStarted = runCatching {
+            locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, 1_000L, 0f, speedListener, Looper.getMainLooper()
+            )
+        }.isSuccess
+        if (speedStarted && _gpsState.value != GpsState.OK) _gpsState.value = GpsState.SEARCHING
+    }
+
+    /** Stops GPS while CarHome is in the background (another app on screen). */
+    fun stopSpeed() {
+        if (!speedStarted) return
+        runCatching { locationManager.removeUpdates(speedListener) }
+        speedStarted = false
+        lastFix = null
+        _speedMps.value = null
+    }
+
+    // ── Speed alert ──────────────────────────────────────────────────────────
+    private val _overspeed = MutableStateFlow(false)
+    val overspeed: StateFlow<Boolean> = _overspeed.asStateFlow()
+
+    private var tone: ToneGenerator? = null
+    private fun beep() {
+        runCatching {
+            val t = tone ?: ToneGenerator(AudioManager.STREAM_MUSIC, 90).also { tone = it }
+            t.startTone(ToneGenerator.TONE_PROP_BEEP2, 450)
+        }
+    }
+
+    /** Preview from Settings: flashes the alert and plays the chosen sound once. */
+    fun testAlert() {
+        viewModelScope.launch {
+            _overspeed.value = true
+            if (_settings.value.alertMode != AlertMode.SCREEN) beep()
+            delay(2_500)
+            _overspeed.value = false
+        }
+    }
+
+    private fun startAlertLoop() {
+        viewModelScope.launch {
+            var episodeBeeped = false
+            var lastBeepAt = 0L
+            while (true) {
+                delay(1_000)
+                val s = _settings.value
+                // A fix older than 6 s means GPS lost — show "waiting" instead of a stale number
+                if (speedStarted && lastFixAt > 0 && SystemClock.elapsedRealtime() - lastFixAt > 6_000) {
+                    _speedMps.value = null
+                    _gpsState.value = GpsState.SEARCHING
+                }
+                val mps = _speedMps.value
+                if (!s.speedAlert || !s.showSpeed || mps == null) {
+                    if (_overspeed.value) _overspeed.value = false
+                    episodeBeeped = false
+                    continue
+                }
+                val speed = speedInUnit(mps, s.useKmh)
+                val trigger = s.speedLimit + s.speedMargin
+                when {
+                    speed > trigger -> {
+                        _overspeed.value = true
+                        val now = SystemClock.elapsedRealtime()
+                        when (s.alertMode) {
+                            AlertMode.SCREEN -> Unit
+                            AlertMode.BEEP_ONCE -> if (!episodeBeeped) { beep(); episodeBeeped = true }
+                            AlertMode.BEEP_REPEAT -> if (now - lastBeepAt >= 10_000) { beep(); lastBeepAt = now }
+                        }
+                    }
+                    // Small hysteresis so hovering right at the limit doesn't flicker
+                    speed < trigger - 3 -> {
+                        _overspeed.value = false
+                        episodeBeeped = false
+                        lastBeepAt = 0L
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCleared() {
         runCatching { getApplication<Application>().unregisterReceiver(packageReceiver) }
         runCatching { locationManager.removeUpdates(locationListener) }
+        runCatching { locationManager.removeUpdates(speedListener) }
+        runCatching { tone?.release() }
         super.onCleared()
     }
 
@@ -259,5 +407,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
         startLocation()
         startWeatherLoop()
+        startSpeed()
+        startAlertLoop()
     }
 }
