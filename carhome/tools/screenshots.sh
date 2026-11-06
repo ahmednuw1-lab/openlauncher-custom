@@ -17,6 +17,8 @@ adb shell settings put system user_rotation 1
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0.5
+# Skip Android's one-time "Viewing full screen" notice so it doesn't cover the shots
+adb shell settings put secure immersive_mode_confirmations confirmed
 
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
@@ -51,25 +53,15 @@ adb emu geo fix 49.5887 25.3834
 sleep 14   # let the weather download
 adb exec-out screencap -p > "$OUT/1-home.png"
 
-# Simulate driving at ~130 km/h (70 knots) with NMEA sentences to show the speed alert
-nmea() {
-  python3 - "$1" "$2" <<'PY'
-import sys, time
-lat, kn = float(sys.argv[1]), sys.argv[2]
-t = time.gmtime()
-body = "GPRMC,%s,A,%02d%07.4f,N,%03d%07.4f,E,%s,90.0,%s,,," % (
-    time.strftime("%H%M%S", t), int(lat), (lat % 1) * 60, 49, 0.5886 * 60, kn, time.strftime("%d%m%y", t))
-cs = 0
-for ch in body: cs ^= ord(ch)
-print("$%s*%02X" % (body, cs))
-PY
-}
-for i in 1 2 3 4 5 6; do
-  adb emu geo nmea "$(nmea 25.38$((30 + i)) 70.0)"
+# Simulate driving: emulator "geo fix <lon> <lat> <alt> <satellites> <velocity-knots>"
+# 70 knots ≈ 130 km/h — over the default 120 limit, so the alert shows
+for i in 1 2 3 4 5 6 7; do
+  adb emu geo fix 49.59$((10 + i)) 25.3833 150 8 70
   sleep 1
 done
 adb exec-out screencap -p > "$OUT/2-home-speed-alert.png"
-for i in 1 2 3; do adb emu geo nmea "$(nmea 25.3840 0.0)"; sleep 1; done
+for i in 1 2 3; do adb emu geo fix 49.5920 25.3833 150 8 0; sleep 1; done
+sleep 3
 
 # Settings page (Settings button: top-right corner)
 adb shell input tap 1232 48
