@@ -38,6 +38,14 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 
+      # The emulator's data disk needs several GB; the runner image ships large
+      # toolchains we don't use
+      - name: Free disk space
+        working-directory: .
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/lib/android/sdk/ndk /opt/hostedtoolcache/CodeQL || true
+          df -h /
+
       - name: Enable KVM
         working-directory: .
         run: |
@@ -51,6 +59,7 @@ jobs:
           api-level: 34
           target: google_apis
           arch: x86_64
+          disk-size: 3000M
           working-directory: carhome
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
