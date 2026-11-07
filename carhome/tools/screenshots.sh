@@ -23,6 +23,11 @@ adb shell settings put secure immersive_mode_confirmations confirmed
 
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
+# CarHome is the home screen; switch off the emulator's own launcher so its
+# "isn't responding" dialogs (slow software graphics) can't cover the shots
+adb shell cmd package set-home-activity $PKG/.MainActivity || true
+adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
+
 # Grant what the user would grant on first launch
 adb shell pm grant $PKG android.permission.ACCESS_FINE_LOCATION
 adb shell pm grant $PKG android.permission.ACCESS_COARSE_LOCATION
