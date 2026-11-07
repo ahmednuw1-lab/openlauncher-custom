@@ -4,7 +4,6 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import android.media.ToneGenerator
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -91,30 +90,35 @@ class Voice(private val core: Core) {
     }
 
     // ── Sounds ──────────────────────────────────────────────────────────────
+    // On a CarPlay box, sound only reaches the car once the car switches its audio
+    // to the box, which can take most of a second. So every sound starts with a
+    // short silence, asks for audio focus (music ducks, like a Maps prompt), and is
+    // sent as a navigation prompt by default, or as media if the user picks that.
 
-    private var tone: ToneGenerator? = null
+    private val am = core.app.getSystemService(android.content.Context.AUDIO_SERVICE) as AudioManager
 
-    /** The speed alert beep (media volume, so it plays through the car speakers). */
-    fun beep() {
-        runCatching {
-            val t = tone ?: ToneGenerator(AudioManager.STREAM_MUSIC, 90).also { tone = it }
-            t.startTone(ToneGenerator.TONE_PROP_BEEP2, 450)
-        }
-    }
-
+    private val alertPcm: ShortArray by lazy { buildAlert() }
     private val chimePcm: ShortArray by lazy { buildChime() }
 
+    /** The speed alert: three clear beeps. */
+    fun beep() = play(alertPcm)
+
     /** Two soft bell notes (E6 → C6), made in code so no sound file is needed. */
-    fun chime() {
+    fun chime() = play(chimePcm)
+
+    private fun play(pcm: ShortArray) {
         runCatching {
-            val pcm = chimePcm
+            val media = core.settings.value.alertChannel == SoundChannel.MEDIA
+            val attrs = AudioAttributes.Builder()
+                .setUsage(if (media) AudioAttributes.USAGE_MEDIA else AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            val focus = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(attrs)
+                .build()
+            runCatching { am.requestAudioFocus(focus) }
             val track = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
+                .setAudioAttributes(attrs)
                 .setAudioFormat(
                     AudioFormat.Builder()
                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
@@ -126,10 +130,35 @@ class Voice(private val core: Core) {
                 .setBufferSizeInBytes(pcm.size * 2)
                 .build()
             track.write(pcm, 0, pcm.size)
+            track.setVolume(1f)
             track.play()
-            val ms = pcm.size * 1000L / SAMPLE_RATE + 200
-            main.postDelayed({ runCatching { track.release() } }, ms)
+            val ms = pcm.size * 1000L / SAMPLE_RATE + 300
+            main.postDelayed({
+                runCatching { track.release() }
+                runCatching { am.abandonAudioFocusRequest(focus) }
+            }, ms)
         }
+    }
+
+    private fun silence(seconds: Double) = DoubleArray((SAMPLE_RATE * seconds).toInt())
+
+    /** 0.6 s of silence for the car to switch audio, then three 1.5 kHz beeps. */
+    private fun buildAlert(): ShortArray {
+        val lead = silence(0.6)
+        val beep = 0.16
+        val gap = 0.09
+        val body = DoubleArray((SAMPLE_RATE * (3 * beep + 2 * gap + 0.05)).toInt())
+        for (k in 0 until 3) {
+            val s0 = (k * (beep + gap) * SAMPLE_RATE).toInt()
+            val n = (beep * SAMPLE_RATE).toInt()
+            for (i in 0 until n) {
+                val t = i.toDouble() / SAMPLE_RATE
+                // 5 ms fade in and out so the beeps don't click
+                val env = min(1.0, min(t, beep - t) / 0.005)
+                body[s0 + i] = env * (0.55 * sin(2 * PI * 1480.0 * t) + 0.15 * sin(2 * PI * 2960.0 * t))
+            }
+        }
+        return toPcm(lead + body)
     }
 
     private fun buildChime(): ShortArray {
@@ -145,14 +174,14 @@ class Voice(private val core: Core) {
                 out[i] += env * (0.30 * sin(2 * PI * f * t) + 0.08 * sin(4 * PI * f * t))
             }
         }
-        return ShortArray(total) { i -> (out[i].coerceIn(-1.0, 1.0) * Short.MAX_VALUE).toInt().toShort() }
+        return toPcm(silence(0.6) + out)
     }
+
+    private fun toPcm(d: DoubleArray) = ShortArray(d.size) { i -> (d[i].coerceIn(-1.0, 1.0) * Short.MAX_VALUE).toInt().toShort() }
 
     fun release() {
         runCatching { tts?.shutdown() }
         tts = null
-        runCatching { tone?.release() }
-        tone = null
         _status.value = VoiceStatus.OFF
     }
 

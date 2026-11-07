@@ -482,6 +482,11 @@ private fun SpeedPage(st: SettingsState, act: SettingsActions) {
         Chips(stringResource(R.string.grace_margin), SPEED_MARGINS.map { if (it == 0) "0" else "+$it" }, SPEED_MARGINS.indexOf(s.speedMargin), a) { i ->
             act.update { it.copy(speedMargin = SPEED_MARGINS[i]) }
         }
+        Chips(stringResource(R.string.alert_channel), listOf(stringResource(R.string.channel_nav), stringResource(R.string.channel_media)),
+            com.carhome.launcher.SoundChannel.entries.indexOf(s.alertChannel), a) { i ->
+            act.update { it.copy(alertChannel = com.carhome.launcher.SoundChannel.entries[i]) }
+        }
+        Hint(stringResource(R.string.alert_channel_hint))
         ActionButton(stringResource(R.string.test_alert), a, onClick = act.testAlert)
     }
     Section(stringResource(R.string.road_limit)) {

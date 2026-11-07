@@ -26,6 +26,8 @@ enum class VolumeBoost { OFF, LOW, MEDIUM, HIGH }
 enum class Background { CLASSIC, SKY, PHOTO }
 /** Where the shown speed comes from. AUTO = GPS, or the car (OBD) when GPS has no signal. */
 enum class SpeedSource { AUTO, GPS, CAR }
+/** How alert sounds reach the car: as a navigation prompt (ducks music) or as media. */
+enum class SoundChannel { NAVIGATION, MEDIA }
 
 /**
  * Every user choice. All features added in 1.2 start switched off, so the home
@@ -55,6 +57,7 @@ data class LauncherSettings(
     val speedLimit: Int = 120,
     val alertMode: AlertMode = AlertMode.BEEP_ONCE,
     val speedMargin: Int = 0,
+    val alertChannel: SoundChannel = SoundChannel.NAVIGATION,
     // Automatic road speed limit
     val roadLimit: Boolean = false,
     val roadNoData: NoRoadData = NoRoadData.USE_MINE,
@@ -375,6 +378,7 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         speedLimit = o.optInt("speedLimit", d.speedLimit).coerceIn(SPEED_LIMIT_MIN, SPEED_LIMIT_MAX),
         alertMode = o.enumOr("alertMode", d.alertMode),
         speedMargin = o.intFrom("speedMargin", d.speedMargin, SPEED_MARGINS),
+        alertChannel = o.enumOr("alertChannel", d.alertChannel),
         roadLimit = o.optBoolean("roadLimit", d.roadLimit),
         roadNoData = o.enumOr("roadNoData", d.roadNoData),
         roadCap = o.optBoolean("roadCap", d.roadCap),
@@ -452,6 +456,7 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("speedLimit", s.speedLimit)
     put("alertMode", s.alertMode.name)
     put("speedMargin", s.speedMargin)
+    put("alertChannel", s.alertChannel.name)
     put("roadLimit", s.roadLimit)
     put("roadNoData", s.roadNoData.name)
     put("roadCap", s.roadCap)

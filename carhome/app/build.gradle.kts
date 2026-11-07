@@ -13,8 +13,8 @@ android {
         applicationId = "com.carhome.launcher"
         minSdk        = 26
         targetSdk     = 36
-        versionCode   = 8
-        versionName   = "1.2.5"
+        versionCode   = 9
+        versionName   = "1.2.6"
     }
 
     // One fixed key for every build. GitHub's runners create a new random debug
