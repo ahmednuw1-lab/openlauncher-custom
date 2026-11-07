@@ -424,6 +424,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             var lastKick = -1
             var nextAt = 0L
             var hadLocation = false
+            var failures = 0
             while (true) {
                 val now = System.currentTimeMillis()
                 val loc = engine.location.value
@@ -437,7 +438,14 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                     val w = fetchWeather(loc.latitude, loc.longitude)
                     if (w != null) _weather.value = w
                     if (s.dustWarning) _dustInHours.value = fetchDustInHours(loc.latitude, loc.longitude)
-                    nextAt = System.currentTimeMillis() + if (w != null) 30 * 60_000L else 2 * 60_000L
+                    // After a failed download retry soon, then back off: 20 s, 1 min, 2 min
+                    failures = if (w != null) 0 else failures + 1
+                    nextAt = System.currentTimeMillis() + when {
+                        w != null -> 30 * 60_000L
+                        failures == 1 -> 20_000L
+                        failures == 2 -> 60_000L
+                        else -> 2 * 60_000L
+                    }
                 }
                 delay(5_000)
             }

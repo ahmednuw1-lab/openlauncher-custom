@@ -100,7 +100,8 @@ prefs "${CUSTOM%\}},\"bubble\":true,\"bubbleSize\":\"LARGE\"}" "$CTILES" "$BOOT"
 start
 sleep 6
 drive 5
-adb shell am start -a android.settings.SETTINGS
+# (Android hides other apps' bubbles on its own Settings screens, so use the Clock app)
+adb shell am start -a android.intent.action.SHOW_ALARMS || adb shell am start -a android.intent.action.VIEW -d https://example.com
 drive 9
 shot 4-bubble-over-app
 park
