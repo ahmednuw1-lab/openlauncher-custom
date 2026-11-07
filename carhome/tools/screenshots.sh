@@ -92,7 +92,7 @@ prefs "$CUSTOM" "$CTILES" "$BOOT"
 start
 sleep 4
 adb emu geo fix 49.5886 25.3833
-sleep 14
+sleep 22
 shot 3-home-custom
 
 # 4: floating speed bubble over another app while over the limit
@@ -101,7 +101,7 @@ start
 sleep 6
 drive 5
 adb shell am start -a android.settings.SETTINGS
-drive 4
+drive 9
 shot 4-bubble-over-app
 park
 start
@@ -126,7 +126,7 @@ sleep 1
 # 9: welcome screen (a changed boot count looks like the car just started)
 prefs "${CUSTOM%\}},\"welcome\":true,\"welcomeName\":\"Ahmed\"}" "$CTILES" "-5"
 start
-sleep 2
+sleep 8
 shot 9-welcome
 sleep 6
 

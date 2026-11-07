@@ -605,10 +605,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         spokenOil = false
         spokenDust = false
         lastTouch = SystemClock.elapsedRealtime()
-        if (s.welcome) {
-            _welcome.value = true
-            viewModelScope.launch { delay(4_500); _welcome.value = false }
-        }
+        if (s.welcome) _welcome.value = true   // the screen hides it 4.5 s after it appears
         if (s.autoStart && (s.autoMusic || s.autoApp.isNotEmpty())) {
             viewModelScope.launch {
                 delay(maxOf(s.autoDelay * 1_000L, if (s.welcome) 4_500L else 0L))

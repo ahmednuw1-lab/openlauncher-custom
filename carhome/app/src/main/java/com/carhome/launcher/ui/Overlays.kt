@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +39,7 @@ import com.carhome.launcher.TripStats
 import com.carhome.launcher.WeatherInfo
 import com.carhome.launcher.prayerName
 import com.carhome.launcher.weatherKind
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -54,6 +56,10 @@ fun WelcomeOverlay(
     accent: Color,
     onDismiss: () -> Unit
 ) {
+    // Timed from the first frame on screen, so a slow start doesn't eat the greeting
+    LaunchedEffect(visible) {
+        if (visible) { delay(4_500); onDismiss() }
+    }
     AnimatedVisibility(visible, enter = fadeIn(tween(500)), exit = fadeOut(tween(800))) {
         val locale = appLocale()
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -132,7 +138,7 @@ fun ParkedOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFA03050A))
+                .background(Color(0xFF03050A))
                 .clickable(remember { MutableInteractionSource() }, null, onClick = onDismiss),
             contentAlignment = Alignment.Center
         ) {

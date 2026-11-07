@@ -166,11 +166,11 @@ fun LivingSky(sun: Pair<Long, Long>?, weatherCode: Int?, dust: Boolean) {
     val kind = weatherCode?.let { weatherKind(it) }
     val cloudCount = when (kind) {
         WeatherKind.PARTLY -> 3
-        WeatherKind.CLOUDY, WeatherKind.FOG, WeatherKind.DRIZZLE, WeatherKind.RAIN, WeatherKind.STORM, WeatherKind.SNOW -> 6
+        WeatherKind.CLOUDY, WeatherKind.FOG, WeatherKind.DRIZZLE, WeatherKind.RAIN, WeatherKind.STORM, WeatherKind.SNOW -> 5
         else -> 0
     }
     val raining = kind == WeatherKind.RAIN || kind == WeatherKind.DRIZZLE || kind == WeatherKind.STORM
-    val starAlpha = (1f - day) * (1f - glow) * if (cloudCount >= 6) 0.3f else 1f
+    val starAlpha = (1f - day) * (1f - glow) * if (cloudCount >= 5) 0.3f else 1f
 
     Canvas(Modifier.fillMaxSize()) {
         val w = size.width
@@ -183,16 +183,21 @@ fun LivingSky(sun: Pair<Long, Long>?, weatherCode: Int?, dust: Boolean) {
                 drawCircle(Color.White.copy(alpha = starAlpha * tw * 0.8f), s.r, Offset(s.x * w, s.y * h))
             }
         }
+        val cloudAlpha = if (cloudCount >= 5) 0.10f else 0.07f
         for (i in 0 until cloudCount) {
             val c = clouds[i]
-            val span = w + 600f
-            val cx = ((c.x * span + time * c.speed) % span) - 300f
+            val span = w + 800f
+            val cx = ((c.x * span + time * c.speed) % span) - 400f
             val cy = c.y * h
-            val col = Color.White.copy(alpha = if (cloudCount >= 6) 0.075f else 0.055f)
-            val r = 90f * c.scale
-            drawCircle(col, r, Offset(cx, cy))
-            drawCircle(col, r * 0.8f, Offset(cx - r * 0.9f, cy + r * 0.25f))
-            drawCircle(col, r * 0.85f, Offset(cx + r * 0.95f, cy + r * 0.2f))
+            val r = 150f * c.scale
+            // Soft-edged puffs: a radial fade instead of hard circles
+            listOf(Offset(cx, cy) to r, Offset(cx - r * 0.8f, cy + r * 0.2f) to r * 0.75f, Offset(cx + r * 0.85f, cy + r * 0.15f) to r * 0.8f)
+                .forEach { (o, rr) ->
+                    drawCircle(
+                        Brush.radialGradient(listOf(Color.White.copy(alpha = cloudAlpha), Color.Transparent), center = o, radius = rr),
+                        radius = rr, center = o
+                    )
+                }
         }
         if (raining) {
             val streak = Color(0xFFB8C7E0).copy(alpha = 0.22f)

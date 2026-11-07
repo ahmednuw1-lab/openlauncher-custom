@@ -579,7 +579,7 @@ fun PrayerCard(
     val now = rememberNow(30_000L)
     val locale = appLocale()
     BoxWithConstraints(modifier = modifier.glass().padding(18.dp)) {
-        val tall = maxHeight >= 190.dp
+        val tall = maxHeight >= 120.dp
         if (prayer == null) {
             CardMessage(Icons.Rounded.Mosque, stringResource(R.string.prayer_waiting), accent)
         } else {
@@ -647,9 +647,10 @@ fun distanceText(metres: Double, useKmh: Boolean): String {
     return String.format(appLocale(), if (v < 100) "%.1f %s" else "%.0f %s", v, unit)
 }
 
+@Composable
 fun durationText(ms: Long): String {
     val mins = ms / 60_000
-    return String.format(Locale.getDefault(), "%d:%02d", mins / 60, mins % 60)
+    return String.format(appLocale(), "%d:%02d", mins / 60, mins % 60)
 }
 
 @Composable
@@ -683,8 +684,9 @@ fun TripCard(
                 Stat(stringResource(R.string.drive_time), durationText(trip.movingMs), Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth()) {
-                Stat(stringResource(R.string.avg_speed), "${speedInUnit(trip.avgMps, settings.useKmh).roundToInt()} $unit", Modifier.weight(1f))
-                Stat(stringResource(R.string.top_speed), "${speedInUnit(trip.maxMps, settings.useKmh).roundToInt()} $unit", Modifier.weight(1f))
+                val loc = appLocale()
+                Stat(stringResource(R.string.avg_speed), String.format(loc, "%d %s", speedInUnit(trip.avgMps, settings.useKmh).roundToInt(), unit), Modifier.weight(1f))
+                Stat(stringResource(R.string.top_speed), String.format(loc, "%d %s", speedInUnit(trip.maxMps, settings.useKmh).roundToInt(), unit), Modifier.weight(1f))
             }
             if (settings.fuelCost) {
                 val litres = trip.distanceM / 1000.0 * settings.fuelConsumption / 100.0
