@@ -148,6 +148,7 @@ class HomeActions(
     val oilChanged: () -> Unit,
     val updateNow: () -> Unit,
     val openReminders: () -> Unit,
+    val renewReminder: (String) -> Unit,
     val newTrip: () -> Unit,
     val readCodes: () -> Unit
 )
@@ -322,7 +323,12 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
                 val dist = if (s.useKmh) "${(c.distanceM / 10).roundToInt() * 10} " + stringResource(R.string.unit_m)
                 else "${(c.distanceM * 1.09361 / 10).roundToInt() * 10} " + stringResource(R.string.unit_yd)
                 Icons.Rounded.PhotoCamera to (
-                    if (c.camera.maxKmh != null) stringResource(R.string.camera_ahead_limit, dist, c.camera.maxKmh)
+                    if (c.camera.maxKmh != null) stringResource(
+                        R.string.camera_ahead_limit, dist,
+                        // The map's limit is in km/h; shown in the user's unit, with the unit
+                        if (s.useKmh) "${c.camera.maxKmh} " + stringResource(R.string.kmh)
+                        else "${(c.camera.maxKmh / 1.609344).roundToInt()} " + stringResource(R.string.mph)
+                    )
                     else stringResource(R.string.camera_ahead, dist)
                 )
             }
@@ -358,7 +364,9 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
                 NoticeKind.PRAYER -> if (s.nearbyButtons) {
                     SmallPill(Icons.Rounded.Mosque, stringResource(R.string.nearest_mosque), st.accent) { act.nearby(Nearby.MOSQUE) }
                 }
-                NoticeKind.REMINDER -> SmallPill(Icons.Rounded.Edit, stringResource(R.string.reminder_update), st.accent, act.openReminders)
+                NoticeKind.REMINDER -> n.due?.let { d ->
+                    SmallPill(Icons.Rounded.Check, stringResource(R.string.reminder_renewed), st.accent) { act.renewReminder(d.reminder.id) }
+                }
                 NoticeKind.UPDATE -> if (n.progress < 0) {
                     SmallPill(Icons.Rounded.SystemUpdate, stringResource(R.string.update_now), st.accent, act.updateNow)
                 }

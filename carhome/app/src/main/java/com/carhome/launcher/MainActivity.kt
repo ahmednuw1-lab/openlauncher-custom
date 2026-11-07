@@ -59,6 +59,10 @@ import com.carhome.launcher.ui.SettingsState
 import com.carhome.launcher.ui.WelcomeOverlay
 import com.carhome.launcher.ui.WhatsNewOverlay
 import java.util.Locale
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -106,23 +110,50 @@ class MainActivity : ComponentActivity() {
     // ── Settings backup ──────────────────────────────────────────────────────
     private val backupSaver = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) return@registerForActivityResult
-        val ok = runCatching {
-            contentResolver.openOutputStream(uri, "wt")!!.use {
-                it.write(Backup.encode(core.prefs.exportAll(), vm.versionName).toByteArray())
+        val text = Backup.encode(core.prefs.exportAll(), vm.versionName)
+        // Files may live on a slow cloud folder or USB stick: never on the main thread
+        lifecycleScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+                }.isSuccess
             }
-        }.isSuccess
-        Toast.makeText(this, if (ok) R.string.backup_saved else R.string.backup_failed, Toast.LENGTH_LONG).show()
+            Toast.makeText(this@MainActivity, if (ok) R.string.backup_saved else R.string.backup_failed, Toast.LENGTH_LONG).show()
+        }
     }
 
     private val backupLoader = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@registerForActivityResult
-        val values = runCatching {
-            contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
-        }.getOrNull()?.let { Backup.decode(it) }
-        if (values == null) {
-            Toast.makeText(this, R.string.backup_not_carhome, Toast.LENGTH_LONG).show()
-            return@registerForActivityResult
+        lifecycleScope.launch {
+            // Read off the main thread, and at most 1 MB (a backup is a few KB)
+            val values = withContext(Dispatchers.IO) {
+                runCatching {
+                    contentResolver.openInputStream(uri)!!.use { input ->
+                        val bytes = input.readNBytesCompat(1_048_577)
+                        if (bytes.size > 1_048_576) null else bytes.toString(Charsets.UTF_8)
+                    }
+                }.getOrNull()?.let { Backup.decode(it) }
+            }
+            if (values == null) {
+                Toast.makeText(this@MainActivity, R.string.backup_not_carhome, Toast.LENGTH_LONG).show()
+            } else {
+                confirmRestore(values)
+            }
         }
+    }
+
+    private fun java.io.InputStream.readNBytesCompat(max: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(8192)
+        while (out.size() < max) {
+            val n = read(buf, 0, minOf(buf.size, max - out.size()))
+            if (n < 0) break
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
+    }
+
+    private fun confirmRestore(values: Map<String, Any>) {
         android.app.AlertDialog.Builder(this)
             .setTitle(R.string.backup_restore_title)
             .setMessage(R.string.backup_restore_message)
@@ -362,6 +393,7 @@ class MainActivity : ComponentActivity() {
             oilChanged = { vm.oilChanged() },
             updateNow = { vm.installUpdate() },
             openReminders = { vm.openSettingsPage(SettingsPage.TRIP); vm.openSettings() },
+            renewReminder = { vm.renewReminder(it) },
             newTrip = { vm.newTrip() },
             readCodes = { vm.readCodes() }
         )
@@ -403,6 +435,7 @@ class MainActivity : ComponentActivity() {
             loadBackup = { loadBackup() },
             addReminder = { vm.addReminder(it) },
             removeReminder = { vm.removeReminder(it) },
+            renewReminder = { vm.renewReminder(it) },
             clearTripHistory = {
                 android.app.AlertDialog.Builder(this)
                     .setMessage(R.string.trip_history_clear_confirm)

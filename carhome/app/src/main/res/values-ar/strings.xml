@@ -405,6 +405,7 @@
     <string name="backup_restore_message">سيُستبدل كل ما في CarHome بالنسخة الاحتياطية، ثم يُعاد تشغيله.</string>
     <string name="backup_restore_yes">تحميل</string>
     <string name="backup_restored">تم تحميل النسخة. جارٍ إعادة تشغيل CarHome…</string>
+    <string name="trip_history_keep">احفظ سجل رحلاتي</string>
     <string name="trip_history">سجل الرحلات</string>
     <string name="trip_history_empty">ستظهر رحلاتك هنا بعد القيادة.</string>
     <string name="trip_last_7_days">آخر 7 أيام</string>
@@ -429,8 +430,9 @@
     <string name="reminder_in_km">بعد</string>
     <string name="reminder_save">حفظ</string>
     <string name="reminder_pick_date">اختر التاريخ</string>
+    <string name="reminder_renewed">جدّدته</string>
     <string name="reminder_delete">حذف</string>
-    <string name="reminder_update">تحديث</string>
+    <string name="reminder_update">تعديل</string>
     <string name="rem_registration">الاستمارة</string>
     <string name="rem_insurance">التأمين</string>
     <string name="rem_inspection">الفحص الدوري</string>
@@ -463,7 +465,7 @@
     <string name="cameras_hint">قبل الكاميرا بنحو 500 م، من خرائط OpenStreetMap. ليست كل الكاميرات على الخريطة، فاتبع اللوحات دائمًا. يحتاج إنترنت.</string>
     <string name="cameras_sound">صافرة عند الاقتراب من كاميرا</string>
     <string name="camera_ahead">كاميرا سرعة أمامك · %1$s</string>
-    <string name="camera_ahead_limit">كاميرا سرعة أمامك · %1$s · الحد %2$d</string>
+    <string name="camera_ahead_limit">كاميرا سرعة أمامك · %1$s · الحد %2$s</string>
     <string name="voice_camera">كاميرا سرعة أمامك</string>
     <string name="unit_m">م</string>
     <string name="unit_yd">ياردة</string>

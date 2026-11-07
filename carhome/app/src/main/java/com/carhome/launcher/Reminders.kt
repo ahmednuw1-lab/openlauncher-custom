@@ -60,6 +60,37 @@ object Reminders {
             .mapNotNull { status(it, now, odometerKm) }
             .sortedBy { st -> minOf(st.daysLeft?.toDouble() ?: Double.MAX_VALUE, (st.kmLeft ?: Double.MAX_VALUE) / 50.0) }
 
+    /** How far "Renewed" moves a reminder on: months for dates, km for distances. */
+    fun renewMonths(t: ReminderType): Int = when (t) {
+        ReminderType.LICENCE -> 60
+        ReminderType.BATTERY -> 24
+        else -> 12
+    }
+
+    fun renewKm(t: ReminderType): Double = when (t) {
+        ReminderType.TYRES -> 40_000.0
+        else -> 10_000.0
+    }
+
+    /**
+     * The reminder after it was renewed: renewed early keeps its cycle (due date +1 period);
+     * renewed late counts from today. By km: from the odometer now.
+     */
+    fun renewed(r: CarReminder, now: Long, odometerKm: Double): CarReminder {
+        val today = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val date = r.dueDate?.let { due ->
+            Calendar.getInstance().apply {
+                timeInMillis = maxOf(due, today)
+                add(Calendar.MONTH, renewMonths(r.type))
+            }.timeInMillis
+        }
+        val km = r.dueKm?.let { odometerKm + renewKm(r.type) }
+        return r.copy(dueDate = date, dueKm = km)
+    }
+
     /** Local midnight of the given date. */
     fun dayStart(year: Int, month0: Int, day: Int): Long =
         Calendar.getInstance().apply { clear(); set(year, month0, day, 0, 0, 0) }.timeInMillis

@@ -119,6 +119,7 @@ data class LauncherSettings(
     val voicePrayer: Boolean = true,
     val voiceReminders: Boolean = true,
     val updateCheck: Boolean = true,          // ask GitHub every 6 h for a new CarHome
+    val tripHistory: Boolean = true,          // keep finished trips for the history page
     val carReminders: Boolean = true,         // paperwork / maintenance banners (nothing until you add one)
     val speedCameras: Boolean = false,        // warn before OpenStreetMap speed cameras
     val cameraSound: Boolean = true,
@@ -208,11 +209,11 @@ class Prefs(context: Context) {
     }
 
     // Settings are one JSON string: easy to extend, and missing keys fall back to defaults
-    fun loadSettings(): LauncherSettings {
-        val json = sp.getString("settings", null)
-        if (json == null) return migrateFrom11()
-        return runCatching { settingsFromJson(JSONObject(json)) }.getOrElse { LauncherSettings() }
-    }
+    fun loadSettings(): LauncherSettings = runCatching {
+        // Never throws, whatever is stored: this runs at every start of the home screen
+        val json = sp.getString("settings", null) ?: return migrateFrom11()
+        settingsFromJson(JSONObject(json))
+    }.getOrElse { LauncherSettings() }
 
     fun saveSettings(s: LauncherSettings) {
         sp.edit().putString("settings", settingsToJson(s).toString()).apply()
@@ -319,17 +320,18 @@ class Prefs(context: Context) {
     /** Car paperwork and maintenance reminders (see [Reminders]). */
     fun loadReminders(): List<CarReminder> = runCatching {
         val arr = JSONArray(sp.getString("car_reminders", "[]"))
-        (0 until arr.length()).mapNotNull { i ->
-            val o = arr.optJSONObject(i) ?: return@mapNotNull null
-            val type = ReminderType.entries.firstOrNull { it.name == o.optString("type") } ?: return@mapNotNull null
+        // One damaged entry is skipped; it never costs the whole list
+        (0 until arr.length()).mapNotNull { i -> runCatching {
+            val o = arr.optJSONObject(i) ?: return@runCatching null
+            val type = ReminderType.entries.firstOrNull { it.name == o.optString("type") } ?: return@runCatching null
             CarReminder(
-                id = o.optString("id").ifBlank { return@mapNotNull null },
+                id = o.optString("id").ifBlank { return@runCatching null },
                 type = type,
                 name = o.optString("name", ""),
                 dueDate = if (o.has("date")) o.getLong("date") else null,
                 dueKm = if (o.has("km")) o.getDouble("km").takeIf { it.isFinite() } else null
             )
-        }
+        }.getOrNull() }
     }.getOrDefault(emptyList())
 
     fun saveReminders(list: List<CarReminder>) {
@@ -359,13 +361,14 @@ class Prefs(context: Context) {
     /** Finished trips, newest first (see [TripHistory]). */
     fun loadTripHistory(): List<PastTrip> = runCatching {
         val arr = JSONArray(sp.getString("trip_history", "[]"))
-        (0 until arr.length()).mapNotNull { i ->
-            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+        // One damaged entry is skipped; it never costs the whole list
+        (0 until arr.length()).mapNotNull { i -> runCatching {
+            val o = arr.optJSONObject(i) ?: return@runCatching null
             PastTrip(
                 startedAt = o.getLong("s"), endedAt = o.getLong("e"), distanceM = o.getDouble("d"),
                 movingMs = o.getLong("m"), maxMps = o.optDouble("x", 0.0).toFloat(), harshEvents = o.optInt("h", 0)
             ).takeIf { it.distanceM.isFinite() }
-        }
+        }.getOrNull() }
     }.getOrDefault(emptyList())
 
     fun saveTripHistory(trips: List<PastTrip>) {
@@ -500,6 +503,7 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         speedSource = o.enumOr("speedSource", d.speedSource),
         approxSpeed = o.optBoolean("approxSpeed", d.approxSpeed),
         updateCheck = o.optBoolean("updateCheck", d.updateCheck),
+        tripHistory = o.optBoolean("tripHistory", d.tripHistory),
         carReminders = o.optBoolean("carReminders", d.carReminders),
         speedCameras = o.optBoolean("speedCameras", d.speedCameras),
         secondPage = o.optBoolean("secondPage", d.secondPage),
@@ -583,6 +587,7 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("speedSource", s.speedSource.name)
     put("approxSpeed", s.approxSpeed)
     put("updateCheck", s.updateCheck)
+    put("tripHistory", s.tripHistory)
     put("carReminders", s.carReminders)
     put("speedCameras", s.speedCameras)
     put("secondPage", s.secondPage)

@@ -83,4 +83,26 @@ class RemindersTest {
         assertTrue(Reminders.due(listOf(r), now, 0.0, snoozedUntil = mapOf("r1" to now + 1000)).isEmpty())
         assertEquals(1, Reminders.due(listOf(r), now, 0.0, snoozedUntil = mapOf("r1" to now - 1000)).size)
     }
+
+    @Test fun renewingEarlyKeepsTheYearlyCycle() {
+        // Istimara due 26 Nov 2026, renewed on 7 Nov: next due 26 Nov 2027
+        val r = Reminders.renewed(date(ReminderType.REGISTRATION, 2026, 11, 26), now, 0.0)
+        assertEquals(at(2027, 11, 26, 0), r.dueDate)
+    }
+
+    @Test fun renewingLateCountsFromToday() {
+        val r = Reminders.renewed(date(ReminderType.INSURANCE, 2026, 10, 1), now, 0.0)
+        assertEquals(at(2027, 11, 7, 0), r.dueDate)
+    }
+
+    @Test fun renewingByKmCountsFromTheOdometer() {
+        assertEquals(10_000.0 + 40_000.0, Reminders.renewed(km(ReminderType.TYRES, 10_300.0), now, 10_000.0).dueKm!!, 0.01)
+        assertEquals(10_000.0 + 10_000.0, Reminders.renewed(km(ReminderType.SERVICE, 9_900.0), now, 10_000.0).dueKm!!, 0.01)
+    }
+
+    @Test fun renewedIsQuietAgain() {
+        val r = Reminders.renewed(date(ReminderType.INSPECTION, 2026, 11, 20), now, 0.0)
+        assertNull(Reminders.status(r, now, 0.0))
+        assertEquals("r1", r.id)
+    }
 }

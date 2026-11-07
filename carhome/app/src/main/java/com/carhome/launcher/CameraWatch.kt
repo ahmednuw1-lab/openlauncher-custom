@@ -31,6 +31,7 @@ class CameraWatch(private val core: Core) {
     private var job: Job? = null
     /** Camera the user closed on the home screen (until the car has passed it) */
     private var hiddenId: Long? = null
+    private var hiddenAt = 0L
 
     /** Called by the drive engine once a second. */
     fun tick(lat: Double?, lon: Double?, headingDeg: Float?, speedMps: Float?) {
@@ -50,7 +51,9 @@ class CameraWatch(private val core: Core) {
             }
         }
         val a = SpeedCameras.ahead(lat, lon, headingDeg, speedMps, cameras)
-        if (a?.camera?.id != hiddenId) hiddenId = null
+        // A closed banner stays closed until a different camera is ahead (not just a gap)
+        if (a != null && a.camera.id != hiddenId) hiddenId = null
+        if (hiddenId != null && now - hiddenAt > 10 * 60_000L) hiddenId = null   // and for 10 minutes at most
         val shown = a?.takeIf { it.camera.id != hiddenId }
         if (alerter.update(shown, now)) {
             if (s.cameraSound) core.voice.beep()
@@ -62,13 +65,14 @@ class CameraWatch(private val core: Core) {
     /** Closes the banner for the camera ahead (it comes back for the next one). */
     fun hide() {
         hiddenId = _ahead.value?.camera?.id
+        hiddenAt = SystemClock.elapsedRealtime()
         _ahead.value = null
     }
 
     private fun download(exactLat: Double, exactLon: Double): List<SpeedCamera>? {
-        // A position rounded to ~100 m, for a 5 km circle: the map server never sees the exact track
-        val lat = Math.round(exactLat * 1000.0) / 1000.0
-        val lon = Math.round(exactLon * 1000.0) / 1000.0
+        // A position rounded to ~1 km, for a 5 km circle: the map server never sees the exact track
+        val lat = Math.round(exactLat * 100.0) / 100.0
+        val lon = Math.round(exactLon * 100.0) / 100.0
         val q = "[out:json][timeout:15];node(around:5000,$lat,$lon)[\"highway\"=\"speed_camera\"];out;"
         val conn = URL("https://overpass-api.de/api/interpreter").openConnection() as HttpURLConnection
         try {
@@ -80,12 +84,16 @@ class CameraWatch(private val core: Core) {
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             conn.outputStream.use { it.write(("data=" + URLEncoder.encode(q, "UTF-8")).toByteArray()) }
             if (conn.responseCode != 200) return null
-            val els = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONArray("elements") ?: return emptyList()
+            val root = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            // A busy map server answers "200" with a remark and no data: that's a failure, not "no cameras"
+            if (root.optString("remark").isNotBlank()) return null
+            val els = root.optJSONArray("elements") ?: return null
             return (0 until els.length()).mapNotNull { i ->
                 val e = els.optJSONObject(i) ?: return@mapNotNull null
                 val tags = e.optJSONObject("tags")
                 val max = tags?.optString("maxspeed")?.let { Regex("""^\d+""").find(it)?.value?.toIntOrNull() }
-                SpeedCamera(e.optLong("id"), e.optDouble("lat"), e.optDouble("lon"), max)
+                val dir = SpeedCameras.parseDirection(tags?.optString("direction")?.takeIf { it.isNotBlank() })
+                SpeedCamera(e.optLong("id"), e.optDouble("lat"), e.optDouble("lon"), max, dir)
                     .takeIf { it.lat.isFinite() && it.lon.isFinite() }
             }
         } finally {

@@ -405,6 +405,7 @@
     <string name="backup_restore_message">Everything in CarHome is replaced with the backup, then CarHome restarts.</string>
     <string name="backup_restore_yes">Load</string>
     <string name="backup_restored">Backup loaded. Restarting CarHome…</string>
+    <string name="trip_history_keep">Keep a history of my trips</string>
     <string name="trip_history">Trip history</string>
     <string name="trip_history_empty">Your trips appear here after you drive.</string>
     <string name="trip_last_7_days">Last 7 days</string>
@@ -425,6 +426,7 @@
     <string name="reminder_in_km">Due in</string>
     <string name="reminder_save">Save</string>
     <string name="reminder_pick_date">Choose the date</string>
+    <string name="reminder_renewed">Renewed</string>
     <string name="reminder_delete">Delete</string>
     <string name="reminder_update">Update</string>
     <string name="rem_registration">Car registration (Istimara)</string>
@@ -451,7 +453,7 @@
     <string name="cameras_hint">About 500 m before a camera ahead, from OpenStreetMap. Not every camera is on the map, so always follow the road signs. Needs internet.</string>
     <string name="cameras_sound">Beep when a camera comes up</string>
     <string name="camera_ahead">Speed camera ahead · %1$s</string>
-    <string name="camera_ahead_limit">Speed camera ahead · %1$s · limit %2$d</string>
+    <string name="camera_ahead_limit">Speed camera ahead · %1$s · limit %2$s</string>
     <string name="voice_camera">Speed camera ahead</string>
     <string name="unit_m">m</string>
     <string name="unit_yd">yd</string>

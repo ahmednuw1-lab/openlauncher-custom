@@ -30,8 +30,12 @@ object TripHistory {
     fun add(history: List<PastTrip>, t: PastTrip): List<PastTrip> =
         if (t.distanceM < MIN_M) history else (listOf(t) + history).take(MAX)
 
+    /**
+     * A trip counts on the day it started: it may only be saved at the next car start,
+     * days later, so its save time says nothing about when it was driven.
+     */
     fun totals(trips: List<PastTrip>, fromMs: Long, toMs: Long): TripTotals {
-        val sel = trips.filter { it.endedAt in fromMs..toMs }
+        val sel = trips.filter { it.startedAt in fromMs..toMs }
         return TripTotals(sel.size, sel.sumOf { it.distanceM }, sel.sumOf { it.movingMs })
     }
 

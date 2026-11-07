@@ -579,6 +579,16 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         updateNotices()
     }
 
+    /** "Renewed": moves the reminder to its next period (see [Reminders.renewed]). */
+    fun renewReminder(id: String) {
+        val now = System.currentTimeMillis()
+        _reminders.value = _reminders.value.map { if (it.id == id) Reminders.renewed(it, now, engine.odometerKm.value) else it }
+        prefs.saveReminders(_reminders.value)
+        reminderSnooze = reminderSnooze - id
+        prefs.saveReminderSnooze(reminderSnooze)
+        updateNotices()
+    }
+
     /** Closed on the home screen: shown again in 3 days if still due. */
     private fun snoozeReminder(id: String) {
         reminderSnooze = reminderSnooze + (id to System.currentTimeMillis() + 3 * 86_400_000L)

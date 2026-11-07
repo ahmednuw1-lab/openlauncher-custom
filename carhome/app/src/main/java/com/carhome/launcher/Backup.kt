@@ -13,10 +13,28 @@ object Backup {
     private const val FORMAT = "carhome-backup"
     private const val VERSION = 1
 
-    /** Kept per box: brightness before night mode, update bookkeeping, reminders already given. */
+    /**
+     * Kept per box: brightness before night mode, update bookkeeping, reminders already
+     * given, and first-run marks (a new box must still ask for location the first time).
+     */
     val LOCAL_ONLY = setOf(
         "saved_brightness", "saved_brightness_mode", "update_checked_at", "dismissed_update",
-        "last_version_code", "reminded_prayer_at"
+        "last_version_code", "reminded_prayer_at", "asked_location", "boot_count"
+    )
+
+    /**
+     * The type each key CarHome reads must have ("s" text, "i" Int, "l" Long, "b" yes/no,
+     * "f" Float, "set" text set). A backup value of another type is dropped: reading it
+     * would crash CarHome on every start. Unknown keys (from newer versions) are kept.
+     */
+    private val TYPES: Map<String, String> = mapOf(
+        "settings" to "s", "tiles" to "s", "tiles2" to "s", "places" to "s", "odometer_km" to "s",
+        "oil_at_km" to "s", "launches" to "s", "scores" to "s", "trip" to "s", "last_trip" to "s",
+        "trip_history" to "s", "car_reminders" to "s", "reminder_snooze" to "s", "alert_mode" to "s",
+        "bubble_x" to "i", "bubble_y" to "i", "speed_limit" to "i", "speed_margin" to "i", "tile_count" to "i",
+        "accent" to "l",
+        "show_speed" to "b", "show_weather" to "b", "speed_alert" to "b", "use_24h" to "b", "use_kmh" to "b",
+        "parked_only" to "set"
     )
 
     fun encode(values: Map<String, *>, appVersion: String): String {
@@ -52,8 +70,10 @@ object Backup {
         for (k in data.keys()) {
             if (k in LOCAL_ONLY) continue
             val e = data.optJSONObject(k) ?: continue
+            val t = e.optString("t")
+            if (TYPES[k]?.let { it != t } == true) continue   // wrong type for a known key
             val value: Any = runCatching {
-                when (e.optString("t")) {
+                when (t) {
                     "s" -> e.getString("v")
                     "i" -> e.getInt("v")
                     "l" -> e.getLong("v")
@@ -65,6 +85,9 @@ object Backup {
             }.getOrNull() ?: continue
             out[k] = value
         }
+        // A backup must carry readable settings; without them restoring would just wipe everything
+        val settings = out["settings"] as? String ?: return null
+        if (runCatching { JSONObject(settings) }.isFailure) return null
         return out
     }
 }

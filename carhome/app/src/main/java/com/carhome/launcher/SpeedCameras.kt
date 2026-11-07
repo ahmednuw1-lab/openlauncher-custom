@@ -6,7 +6,11 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /** A speed camera from OpenStreetMap (highway=speed_camera). */
-data class SpeedCamera(val id: Long, val lat: Double, val lon: Double, val maxKmh: Int? = null)
+data class SpeedCamera(
+    val id: Long, val lat: Double, val lon: Double, val maxKmh: Int? = null,
+    /** Direction of travel it checks (compass degrees), when the map says */
+    val directionDeg: Float? = null
+)
 
 /** The camera the car is heading to, and how far it is. */
 data class CameraAhead(val camera: SpeedCamera, val distanceM: Double)
@@ -23,6 +27,9 @@ object SpeedCameras {
     /** Cameras must be within this angle of the direction of travel. */
     private const val AHEAD_DEG = 35f
 
+    /** A camera tagged for another direction (e.g. the opposite carriageway) is skipped. */
+    private const val SAME_WAY_DEG = 60f
+
     fun ahead(lat: Double, lon: Double, headingDeg: Float?, speedMps: Float, cams: List<SpeedCamera>): CameraAhead? {
         if (speedMps < 5f) return null   // under ~18 km/h: parking, traffic lights
         var best: CameraAhead? = null
@@ -31,10 +38,27 @@ object SpeedCameras {
             if (d > WARN_M) continue
             if (headingDeg == null) {
                 if (d > NO_HEADING_M) continue
-            } else if (angleDiff(headingDeg, bearing(lat, lon, c.lat, c.lon)) > AHEAD_DEG) continue
+            } else {
+                if (angleDiff(headingDeg, bearing(lat, lon, c.lat, c.lon)) > AHEAD_DEG) continue
+                if (c.directionDeg != null && angleDiff(headingDeg, c.directionDeg) > SAME_WAY_DEG) continue
+            }
             if (best == null || d < best.distanceM) best = CameraAhead(c, d)
         }
         return best
+    }
+
+    private val COMPASS = listOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+
+    /**
+     * OpenStreetMap's direction tag as compass degrees: "90" or "NE". Null when it covers
+     * both ways ("90;270"), is relative to the road ("forward"), or is missing.
+     */
+    fun parseDirection(tag: String?): Float? {
+        val t = tag?.trim()?.uppercase() ?: return null
+        if (t.isEmpty() || ';' in t) return null
+        t.toFloatOrNull()?.let { return if (it in 0f..360f) it % 360f else null }
+        val i = COMPASS.indexOf(t)
+        return if (i >= 0) i * 22.5f else null
     }
 
     /** Compass bearing (0–360°) from the first point to the second. */

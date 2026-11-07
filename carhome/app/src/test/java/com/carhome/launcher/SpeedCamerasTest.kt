@@ -68,4 +68,25 @@ class SpeedCamerasTest {
         assertTrue(w.update(CameraAhead(cam(1, 400.0), 400.0), 0L))
         assertTrue(w.update(CameraAhead(cam(2, 400.0), 400.0), 5_000L))
     }
+
+    @Test fun aCameraForOncomingTrafficIsIgnored() {
+        // Across the median, 30 m to the side, tagged for traffic going south
+        val oncoming = cam(9, 400.0, 30.0).copy(directionDeg = 180f)
+        assertNull(SpeedCameras.ahead(lat0, lon0, drivingNorth, 25f, listOf(oncoming)))
+        val ours = cam(10, 400.0, -10.0).copy(directionDeg = 0f)
+        assertEquals(10L, SpeedCameras.ahead(lat0, lon0, drivingNorth, 25f, listOf(oncoming, ours))!!.camera.id)
+    }
+
+    @Test fun aCameraWithoutDirectionStillWarns() =
+        assertEquals(11L, SpeedCameras.ahead(lat0, lon0, drivingNorth, 25f, listOf(cam(11, 300.0)))!!.camera.id)
+
+    @Test fun readsTheDirectionTag() {
+        assertEquals(90f, SpeedCameras.parseDirection("90")!!, 0.01f)
+        assertEquals(45f, SpeedCameras.parseDirection("NE")!!, 0.01f)
+        assertEquals(337.5f, SpeedCameras.parseDirection("nnw")!!, 0.01f)
+        assertNull("both ways", SpeedCameras.parseDirection("90;270"))
+        assertNull("relative to the road, unknown here", SpeedCameras.parseDirection("forward"))
+        assertNull(SpeedCameras.parseDirection(null))
+        assertNull(SpeedCameras.parseDirection("400"))
+    }
 }

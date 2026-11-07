@@ -71,4 +71,16 @@ class TripHistoryTest {
         assertEquals(0, t.trips)
         assertEquals(0.0, t.distanceM, 0.0)
     }
+
+    @Test fun aTripCountsOnTheDayItWasDriven() {
+        // With "new trip at each car start", a trip is only saved at the NEXT start,
+        // maybe days later: it must still count when it was driven
+        val drivenOct31 = PastTrip(
+            startedAt = at(2026, 10, 31, 21), endedAt = at(2026, 11, 2, 8),
+            distanceM = 30_000.0, movingMs = 1_800_000L, maxMps = 30f, harshEvents = 0
+        )
+        assertEquals(0, TripHistory.thisMonth(listOf(drivenOct31), at(2026, 11, 3)).trips)
+        val parkedForAWeek = drivenOct31.copy(startedAt = at(2026, 10, 25), endedAt = at(2026, 11, 2))
+        assertEquals(0, TripHistory.lastDays(listOf(parkedForAWeek), at(2026, 11, 3), 7).trips)
+    }
 }

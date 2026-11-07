@@ -441,7 +441,9 @@ class DriveEngine(private val core: Core) {
         updateLimit(s, mps)
         updateAlert(s, if (_speedApprox.value) null else mps, now)
         // Speed cameras: only with a real speed (not the internet estimate)
-        val camLoc = lastFix ?: _location.value
+        // and a fresh GPS position (not an old one held through a tunnel, nor a rough one)
+        val gpsFreshNow = lastFixAt > 0 && now - lastFixAt < 5_000L
+        val camLoc = lastFix?.takeIf { gpsFreshNow }
         core.cameras.tick(
             camLoc?.latitude, camLoc?.longitude,
             camLoc?.takeIf { it.hasBearing() && (mps ?: 0f) > 3f }?.bearing,
@@ -604,9 +606,11 @@ class DriveEngine(private val core: Core) {
             _lastTrip.value = t
             core.prefs.saveTrip(t, "last_trip")
             if (core.settings.value.driveScore) t.score?.let { core.prefs.addScore(it) }
-            val past = PastTrip(t.startedAt, System.currentTimeMillis(), t.distanceM, t.movingMs, t.maxMps, t.harshEvents)
-            _history.value = TripHistory.add(_history.value, past)
-            core.prefs.saveTripHistory(_history.value)
+            if (core.settings.value.tripHistory) {
+                val past = PastTrip(t.startedAt, System.currentTimeMillis(), t.distanceM, t.movingMs, t.maxMps, t.harshEvents)
+                _history.value = TripHistory.add(_history.value, past)
+                core.prefs.saveTripHistory(_history.value)
+            }
         }
         _trip.value = TripStats()
         saveTrip()

@@ -84,7 +84,8 @@ class Core(val app: Application) {
     private var localizedCtx: Context? = null
 
     fun localized(): Context {
-        val tag = _settings.value.language.tag ?: "system"
+        // Keyed on the actual locale, so a change of the box's own language is followed too
+        val tag = appLocale().toLanguageTag()
         localizedCtx?.let { if (localizedTag == tag) return it }
         val cfg = Configuration(app.resources.configuration)
         val loc = appLocale()

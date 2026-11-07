@@ -180,7 +180,8 @@ class SettingsActions(
     val loadBackup: () -> Unit = {},
     val clearTripHistory: () -> Unit = {},
     val addReminder: (CarReminder) -> Unit = {},
-    val removeReminder: (String) -> Unit = {}
+    val removeReminder: (String) -> Unit = {},
+    val renewReminder: (String) -> Unit = {}
 )
 
 @Composable
@@ -757,6 +758,9 @@ private fun ReminderSection(st: SettingsState, act: SettingsActions) {
                     )
                     Text(parts.joinToString("  ·  "), fontSize = 14.sp, color = TextSecondary)
                 }
+                // Renewed: moves it to the next year (or the next tyre / service interval)
+                ActionButton(stringResource(R.string.reminder_renewed), a) { act.renewReminder(r.id) }
+                Spacer(Modifier.width(10.dp))
                 GlassIconButton(Icons.Rounded.Close, stringResource(R.string.reminder_delete), { act.removeReminder(r.id) }, size = 48.dp)
             }
         }
@@ -822,6 +826,9 @@ private fun TripHistorySection(st: SettingsState, act: SettingsActions) {
     fun dist(m: Double) = String.format(Locale.US, "%.1f", if (s.useKmh) m / 1000.0 else m / 1609.344)
     fun time(ms: Long) = (ms / 60_000L).let { String.format(Locale.US, "%d:%02d", it / 60, it % 60) }
     Section(stringResource(R.string.trip_history)) {
+        Toggle(stringResource(R.string.trip_history_keep), st.settings.tripHistory, a) { on ->
+            act.update { it.copy(tripHistory = on) }
+        }
         val trips = st.tripHistory
         if (trips.isEmpty()) {
             Hint(stringResource(R.string.trip_history_empty))
