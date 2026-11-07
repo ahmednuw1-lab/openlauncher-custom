@@ -310,7 +310,7 @@
     <string name="trip_started">New trip started</string>
     <string name="unit_kmh">Speed in km/h</string>
     <string name="unit_kmh_hint">Off shows mph</string>
-    <string name="version_line">CarHome 1.2.3</string>
+    <string name="version_line">CarHome 1.2.4</string>
     <string name="voice">Spoken alerts</string>
     <string name="voice_break">Time for a break</string>
     <string name="voice_dust">Dust is expected. Drive carefully</string>
@@ -364,4 +364,11 @@
     <string name="open_location_settings">Open location settings</string>
     <string name="credits">Weather data by Open-Meteo.com. Road speed limits © OpenStreetMap contributors.</string>
     <string name="weak_signal">Weak GPS signal</string>
+    <string name="approx_speed_toggle">Approximate speed from the internet</string>
+    <string name="approx_speed_hint">When GPS has no signal, estimates your speed from your internet position over about 30 seconds. It lags and isn\'t exact, so the speed alert doesn\'t use it.</string>
+    <string name="approx_label">approx.</string>
+    <string name="approx_status">Approximate · from internet</string>
+    <string name="gps_approx">Approximate speed (internet)</string>
+    <string name="gps_in_use">In use</string>
+    <string name="gps_not_in_use">Not in use</string>
 </resources>

@@ -462,6 +462,9 @@ private fun SpeedPage(st: SettingsState, act: SettingsActions) {
             if (SpeedSource.entries[i] == SpeedSource.CAR && !s.obd) act.update { it.copy(obd = true) }
         }
         Hint(stringResource(R.string.speed_source_hint))
+        Toggle(stringResource(R.string.approx_speed_toggle), s.approxSpeed, a, stringResource(R.string.approx_speed_hint)) { v ->
+            act.update { it.copy(approxSpeed = v) }
+        }
     }
     Section(stringResource(R.string.speed_alert)) {
         Toggle(stringResource(R.string.speed_alert_on), s.speedAlert, a) { v -> act.update { it.copy(speedAlert = v) } }
@@ -547,6 +550,7 @@ private fun GpsStatusSection(st: SettingsState, act: SettingsActions) {
             fix != null && fix <= 6
         )
         DiagRow(stringResource(R.string.gps_car_speed), stringResource(if (g.carSpeed) R.string.gps_car_yes else R.string.gps_car_no), if (g.carSpeed) true else null)
+        DiagRow(stringResource(R.string.gps_approx), stringResource(if (g.approxSpeed) R.string.gps_in_use else R.string.gps_not_in_use), if (g.approxSpeed) true else null)
         DiagRow(stringResource(R.string.gps_sources), g.providers.joinToString(", ").ifEmpty { "—" }, null)
         Hint(stringResource(R.string.gps_help))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

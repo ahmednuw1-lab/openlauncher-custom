@@ -100,7 +100,7 @@ class DriveService : Service() {
         if (!want) { removeBubble(); return }
         val v = ensureBubble(s)
         val mps = e.speedMps.value
-        v.speedText = mps?.let { speedInUnit(it, s.useKmh).roundToInt().toString() } ?: "—"
+        v.speedText = mps?.let { (if (e.speedApprox.value) "~" else "") + speedInUnit(it, s.useKmh).roundToInt() } ?: "—"
         v.unitText = core.localized().getString(if (s.useKmh) R.string.kmh else R.string.mph)
         v.overspeed = e.overspeed.value
         v.roadLimit = if (s.roadLimit) e.limit.value.roadLimit else null

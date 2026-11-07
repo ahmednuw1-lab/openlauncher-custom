@@ -49,6 +49,7 @@ data class LauncherSettings(
     val speedStyle: SpeedStyle = SpeedStyle.GAUGE,
     val useKmh: Boolean = true,
     val speedSource: SpeedSource = SpeedSource.AUTO,
+    val approxSpeed: Boolean = true,          // estimate from internet when there is no GPS
     // Speed alert
     val speedAlert: Boolean = true,
     val speedLimit: Int = 120,
@@ -369,6 +370,7 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         speedStyle = o.enumOr("speedStyle", d.speedStyle),
         useKmh = o.optBoolean("useKmh", d.useKmh),
         speedSource = o.enumOr("speedSource", d.speedSource),
+        approxSpeed = o.optBoolean("approxSpeed", d.approxSpeed),
         speedAlert = o.optBoolean("speedAlert", d.speedAlert),
         speedLimit = o.optInt("speedLimit", d.speedLimit).coerceIn(SPEED_LIMIT_MIN, SPEED_LIMIT_MAX),
         alertMode = o.enumOr("alertMode", d.alertMode),
@@ -445,6 +447,7 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("speedStyle", s.speedStyle.name)
     put("useKmh", s.useKmh)
     put("speedSource", s.speedSource.name)
+    put("approxSpeed", s.approxSpeed)
     put("speedAlert", s.speedAlert)
     put("speedLimit", s.speedLimit)
     put("alertMode", s.alertMode.name)

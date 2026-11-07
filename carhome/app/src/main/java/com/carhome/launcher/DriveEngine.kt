@@ -34,7 +34,8 @@ data class GpsDiag(
     val lastFixSecondsAgo: Long? = null,
     val lastFixProvider: String? = null,
     val lastFixAccuracy: Int? = null,
-    val carSpeed: Boolean = false
+    val carSpeed: Boolean = false,
+    val approxSpeed: Boolean = false
 )
 
 /** Converts metres/second to the user's unit. */
@@ -111,6 +112,11 @@ class DriveEngine(private val core: Core) {
     /** True while the speed shown is the last one received a few seconds ago (weak GPS signal). */
     val speedStale: StateFlow<Boolean> = _speedStale.asStateFlow()
 
+    private val _speedApprox = MutableStateFlow(false)
+    /** True while the speed shown is an estimate from internet (Wi-Fi/cell) positions. */
+    val speedApprox: StateFlow<Boolean> = _speedApprox.asStateFlow()
+    private val coarse = ArrayDeque<Location>()
+
     private val _satellites = MutableStateFlow(0 to 0)
     /** Satellites seen, and used in the position fix. */
     val satellites: StateFlow<Pair<Int, Int>> = _satellites.asStateFlow()
@@ -180,7 +186,7 @@ class DriveEngine(private val core: Core) {
             val net = if (runCatching { lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) }.getOrDefault(false))
                 LocationManager.NETWORK_PROVIDER else LocationManager.PASSIVE_PROVIDER
             netOn = runCatching {
-                lm.requestLocationUpdates(net, 10 * 60_000L, 500f, netListener, Looper.getMainLooper())
+                lm.requestLocationUpdates(net, 10_000L, 0f, netListener, Looper.getMainLooper())
             }.isSuccess
         }
         if (!hasFine()) { _gpsState.value = GpsState.NO_PERMISSION; return }
@@ -260,6 +266,7 @@ class DriveEngine(private val core: Core) {
 
     private val netListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
+            addCoarse(location)
             if (lastFix == null) _location.value = location
         }
         @Deprecated("Deprecated in Java")
@@ -279,6 +286,7 @@ class DriveEngine(private val core: Core) {
         val accurate = !loc.hasAccuracy() || loc.accuracy <= 25f
         // Wi-Fi/cell positions can't give a speed; keep them for weather and prayer only
         if (!loc.hasSpeed() && !accurate) {
+            addCoarse(loc)
             _location.value = loc
             return
         }
@@ -380,6 +388,23 @@ class DriveEngine(private val core: Core) {
             if (!on && _gpsState.value != GpsState.LOCATION_OFF) { _gpsState.value = GpsState.LOCATION_OFF; _speedMps.value = null }
             if (on && _gpsState.value == GpsState.LOCATION_OFF) _gpsState.value = GpsState.SEARCHING
         }
+        // No GPS and no car: estimate from internet positions (shown as approximate)
+        if (s.approxSpeed && !usingCar && !gpsFresh) {
+            val a = approxSpeedMps()
+            if (a != null) {
+                _speedMps.value = a
+                _speedApprox.value = true
+                _speedStale.value = false
+                if (_gpsState.value == GpsState.SEARCHING || _gpsState.value == GpsState.NO_HARDWARE) _gpsState.value = GpsState.OK
+            } else if (_speedApprox.value) {
+                _speedMps.value = null
+                _speedApprox.value = false
+                if (_gpsState.value == GpsState.OK) _gpsState.value = GpsState.SEARCHING
+            }
+        } else if (_speedApprox.value) {
+            _speedApprox.value = false
+            if (!gpsFresh && !usingCar) _speedMps.value = null
+        }
         if (owners.isNotEmpty()) updateDiag(now, carFresh)
         val mps = _speedMps.value
         val kmh = (mps ?: 0f) * 3.6f
@@ -403,7 +428,7 @@ class DriveEngine(private val core: Core) {
         _breakDue.value = due
 
         updateLimit(s, mps)
-        updateAlert(s, mps, now)
+        updateAlert(s, if (_speedApprox.value) null else mps, now)
         updateVolume(s, kmh, mps != null)
         if (now - lastTripSave > 30_000L) saveTrip()
     }
@@ -476,6 +501,36 @@ class DriveEngine(private val core: Core) {
         if (s.voiceSpeed) voice.say(R.string.voice_over_limit, s.speedLimit)
     }
 
+    // ── Approximate speed from internet positions ───────────────────────────
+
+    private fun addCoarse(loc: Location) {
+        val last = coarse.lastOrNull()
+        if (last != null && loc.elapsedRealtimeNanos <= last.elapsedRealtimeNanos) return
+        coarse.addLast(loc)
+        val cutoff = SystemClock.elapsedRealtimeNanos() - 120_000_000_000L
+        while (coarse.isNotEmpty() && coarse.first().elapsedRealtimeNanos < cutoff) coarse.removeFirst()
+    }
+
+    /**
+     * Average speed between two internet positions 20–90 s apart, or null when it
+     * can't be told from position noise. 0 when clearly standing still.
+     */
+    private fun approxSpeedMps(): Float? {
+        val now = SystemClock.elapsedRealtimeNanos()
+        val last = coarse.lastOrNull() ?: return null
+        if (now - last.elapsedRealtimeNanos > 60_000_000_000L) return null
+        val first = coarse.firstOrNull {
+            val gap = last.elapsedRealtimeNanos - it.elapsedRealtimeNanos
+            gap in 20_000_000_000L..90_000_000_000L
+        } ?: return null
+        val dt = (last.elapsedRealtimeNanos - first.elapsedRealtimeNanos) / 1e9f
+        val d = first.distanceTo(last)
+        val noise = (if (first.hasAccuracy()) first.accuracy else 50f) + (if (last.hasAccuracy()) last.accuracy else 50f)
+        if (d < noise) return if (dt >= 45f && d < noise * 0.5f) 0f else null
+        val v = d / dt
+        return if (v > 70f) null else v   // over ~250 km/h is a position jump, not driving
+    }
+
     private fun updateDiag(now: Long, carFresh: Boolean) {
         val all = runCatching { lm.allProviders }.getOrDefault(emptyList())
         val f = lastFix
@@ -488,7 +543,8 @@ class DriveEngine(private val core: Core) {
             lastFixSecondsAgo = if (f != null && lastFixAt > 0) (now - lastFixAt) / 1000 else null,
             lastFixProvider = f?.provider,
             lastFixAccuracy = f?.takeIf { it.hasAccuracy() }?.accuracy?.roundToInt(),
-            carSpeed = carFresh
+            carSpeed = carFresh,
+            approxSpeed = _speedApprox.value
         )
     }
 

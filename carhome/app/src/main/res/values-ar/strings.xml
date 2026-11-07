@@ -310,7 +310,7 @@
     <string name="trip_started">بدأت رحلة جديدة</string>
     <string name="unit_kmh">السرعة بالكيلومتر</string>
     <string name="unit_kmh_hint">عند الإيقاف تظهر بالميل</string>
-    <string name="version_line">CarHome 1.2.3</string>
+    <string name="version_line">CarHome 1.2.4</string>
     <string name="voice">التنبيهات الصوتية</string>
     <string name="voice_break">حان وقت الاستراحة</string>
     <string name="voice_dust">يُتوقع غبار. قد بحذر</string>
@@ -364,4 +364,11 @@
     <string name="open_location_settings">فتح إعدادات الموقع</string>
     <string name="credits">بيانات الطقس من Open-Meteo.com. حدود السرعة © OpenStreetMap contributors.</string>
     <string name="weak_signal">إشارة GPS ضعيفة</string>
+    <string name="approx_speed_toggle">سرعة تقريبية من الإنترنت</string>
+    <string name="approx_speed_hint">إذا ما فيه إشارة GPS، يقدّر سرعتك من موقعك عبر الإنترنت خلال حوالي 30 ثانية. تتأخر وما هي دقيقة، فتنبيه السرعة ما يعتمد عليها.</string>
+    <string name="approx_label">تقريبي</string>
+    <string name="approx_status">تقريبية · من الإنترنت</string>
+    <string name="gps_approx">السرعة التقريبية (إنترنت)</string>
+    <string name="gps_in_use">مستخدمة</string>
+    <string name="gps_not_in_use">غير مستخدمة</string>
 </resources>
