@@ -13,31 +13,31 @@ android {
         applicationId = "com.carhome.launcher"
         minSdk        = 26
         targetSdk     = 36
-        versionCode   = 10
-        versionName   = "1.2.7"
+        versionCode   = 11
+        versionName   = "1.2.8"
     }
 
-    // One fixed key for every build. GitHub's runners create a new random debug
-    // key each run, and Android refuses to update an app signed with a different
-    // key — so without this every update would need an uninstall first.
-    // (Private repo, personal app: the simple stored password is acceptable.)
+    // Release builds are signed with the CarHome key, which is kept only in the
+    // repository's encrypted GitHub secrets (never in the code). The workflow
+    // writes it to a temporary file and passes its path and password here.
+    // Debug builds use the standard debug key (screenshots and local testing).
+    val releaseKey = System.getenv("CARHOME_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
-        create("shared") {
-            storeFile     = file("signing/carhome-signing.p12")
-            storeType     = "pkcs12"
-            storePassword = "carhome"
-            keyAlias      = "carhome"
-            keyPassword   = "carhome"
+        if (releaseKey != null) {
+            create("release") {
+                storeFile     = releaseKey
+                storeType     = "pkcs12"
+                storePassword = System.getenv("CARHOME_KEYSTORE_PASSWORD")
+                keyAlias      = "carhome"
+                keyPassword   = System.getenv("CARHOME_KEYSTORE_PASSWORD")
+            }
         }
     }
 
     buildTypes {
-        debug {
-            signingConfig = signingConfigs.getByName("shared")
-        }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("shared")
+            if (releaseKey != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 

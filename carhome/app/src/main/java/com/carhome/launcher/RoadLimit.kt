@@ -83,7 +83,7 @@ class RoadLimits {
                 conn.doOutput = true
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 20_000
-                conn.setRequestProperty("User-Agent", "CarHome/1.2.7 (Android launcher)")
+                conn.setRequestProperty("User-Agent", "CarHome/1.2.8 (Android launcher)")
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                 conn.outputStream.use { it.write(("data=" + URLEncoder.encode(q, "UTF-8")).toByteArray()) }
                 if (conn.responseCode != 200) return@runCatching null

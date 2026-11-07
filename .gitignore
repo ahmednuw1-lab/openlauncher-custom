@@ -12,6 +12,8 @@ release/*.aab
 
 # Signing keys — never commit
 *.jks
+*.p12
+*.pfx
 *.keystore
 keystore/
 

@@ -1,5 +1,6 @@
 # Builds the CarHome launcher (carhome/ folder) and publishes carhome.apk
-# as a private release.
+# as a release. The signing key comes from the repository secrets
+# CARHOME_KEYSTORE_B64 and CARHOME_KEYSTORE_PASSWORD; it is never in the code.
 name: Build CarHome
 
 on:
@@ -47,8 +48,28 @@ jobs:
 
       # The release build: not debuggable (faster on the box, private data can't be
       # read over adb). Same signing key, so it installs over the earlier builds.
+      - name: Load the signing key
+        env:
+          KEY_B64: ${{ secrets.CARHOME_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEY_B64" ]; then
+            echo "::error::Add the CARHOME_KEYSTORE_B64 and CARHOME_KEYSTORE_PASSWORD repository secrets"
+            exit 1
+          fi
+          echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/carhome.p12"
+          echo "CARHOME_KEYSTORE=$RUNNER_TEMP/carhome.p12" >> "$GITHUB_ENV"
+
       - name: Build release APK
-        run: ./gradlew --no-daemon assembleRelease
+        env:
+          CARHOME_KEYSTORE_PASSWORD: ${{ secrets.CARHOME_KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon assembleRelease
+          # Refuse to publish an unsigned APK
+          ls app/build/outputs/apk/release/*.apk | grep -v unsigned >/dev/null
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/carhome.p12"
 
       - name: Publish APK as a release
         env:
