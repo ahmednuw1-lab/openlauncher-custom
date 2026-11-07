@@ -117,7 +117,8 @@ data class LauncherSettings(
     val voice: Boolean = false,
     val voiceSpeed: Boolean = true,
     val voicePrayer: Boolean = true,
-    val voiceReminders: Boolean = true
+    val voiceReminders: Boolean = true,
+    val updateCheck: Boolean = true,          // ask GitHub every 6 h for a new CarHome
 )
 
 val DEFAULT_CARDS = listOf(CardType.CLOCK, CardType.SPEED, CardType.MUSIC)
@@ -264,6 +265,16 @@ class Prefs(context: Context) {
         get() = sp.getString("odometer_km", null)?.toDoubleOrNull()?.takeIf { it.isFinite() } ?: 0.0
         set(v) { if (v.isFinite()) sp.edit().putString("odometer_km", v.toString()).apply() }
     /** Odometer reading at the last oil change. */
+    /** When CarHome last asked GitHub for a new version. */
+    var updateCheckedAt: Long
+        get() = sp.getLong("update_checked_at", 0L)
+        set(v) = sp.edit().putLong("update_checked_at", v).apply()
+
+    /** The update version the user closed on the home screen (still in Settings → About). */
+    var dismissedUpdate: String
+        get() = sp.getString("dismissed_update", "") ?: ""
+        set(v) = sp.edit().putString("dismissed_update", v).apply()
+
     /** The prayer time the last reminder was for (so a restart doesn't repeat it). */
     var remindedPrayerAt: Long
         get() = sp.getLong("reminded_prayer_at", 0L)
@@ -393,6 +404,7 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         useKmh = o.optBoolean("useKmh", d.useKmh),
         speedSource = o.enumOr("speedSource", d.speedSource),
         approxSpeed = o.optBoolean("approxSpeed", d.approxSpeed),
+        updateCheck = o.optBoolean("updateCheck", d.updateCheck),
         speedAlert = o.optBoolean("speedAlert", d.speedAlert),
         speedLimit = o.optInt("speedLimit", d.speedLimit).coerceIn(SPEED_LIMIT_MIN, SPEED_LIMIT_MAX),
         alertMode = o.enumOr("alertMode", d.alertMode),
@@ -471,6 +483,7 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("useKmh", s.useKmh)
     put("speedSource", s.speedSource.name)
     put("approxSpeed", s.approxSpeed)
+    put("updateCheck", s.updateCheck)
     put("speedAlert", s.speedAlert)
     put("speedLimit", s.speedLimit)
     put("alertMode", s.alertMode.name)

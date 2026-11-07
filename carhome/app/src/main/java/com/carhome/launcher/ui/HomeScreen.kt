@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.LocalGasStation
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mosque
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.OilBarrel
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Settings
@@ -141,6 +142,7 @@ class HomeActions(
     val nearby: (Nearby) -> Unit,
     val dismissNotice: (Notice) -> Unit,
     val oilChanged: () -> Unit,
+    val updateNow: () -> Unit,
     val newTrip: () -> Unit,
     val readCodes: () -> Unit
 )
@@ -305,6 +307,9 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
                 stringResource(prayerName(n.prayer ?: com.carhome.launcher.Prayer.DHUHR)),
                 formatTime(n.at, s.use24h, appLocale())
             )
+            NoticeKind.UPDATE -> Icons.Rounded.SystemUpdate to
+                (if (n.progress >= 0) stringResource(R.string.update_downloading, n.version.orEmpty(), n.progress)
+                else stringResource(R.string.update_available, n.version.orEmpty()))
         }
         Row(
             modifier = Modifier
@@ -314,7 +319,7 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(icon, null, tint = if (n.kind == NoticeKind.PRAYER) st.accent else WarnAmber, modifier = Modifier.size(28.dp))
+            Icon(icon, null, tint = if (n.kind == NoticeKind.PRAYER || n.kind == NoticeKind.UPDATE) st.accent else WarnAmber, modifier = Modifier.size(28.dp))
             Text(text, fontSize = 17.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 2, modifier = Modifier.widthIn(max = 520.dp))
             when (n.kind) {
                 NoticeKind.BREAK -> {
@@ -324,6 +329,9 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
                 NoticeKind.OIL -> SmallPill(Icons.Rounded.Check, stringResource(R.string.oil_done), st.accent, act.oilChanged)
                 NoticeKind.PRAYER -> if (s.nearbyButtons) {
                     SmallPill(Icons.Rounded.Mosque, stringResource(R.string.nearest_mosque), st.accent) { act.nearby(Nearby.MOSQUE) }
+                }
+                NoticeKind.UPDATE -> if (n.progress < 0) {
+                    SmallPill(Icons.Rounded.SystemUpdate, stringResource(R.string.update_now), st.accent, act.updateNow)
                 }
                 else -> Unit
             }

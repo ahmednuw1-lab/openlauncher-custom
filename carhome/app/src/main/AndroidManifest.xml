@@ -4,6 +4,8 @@
 
     <!-- Weather -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Install CarHome updates from GitHub (Android still asks you to confirm) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Live speed needs real GPS fixes, which require precise location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -60,6 +62,11 @@
         </activity>
 
         <!-- Reads the currently playing song for the music card -->
+        <!-- Hears back from Android's installer during an update -->
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="false" />
+
         <service
             android:name=".MediaService"
             android:exported="true"

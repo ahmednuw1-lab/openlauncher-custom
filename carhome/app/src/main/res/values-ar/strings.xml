@@ -310,7 +310,7 @@
     <string name="trip_started">بدأت رحلة جديدة</string>
     <string name="unit_kmh">السرعة بالكيلومتر</string>
     <string name="unit_kmh_hint">عند الإيقاف تظهر بالميل</string>
-    <string name="version_line">CarHome 1.2.8</string>
+    <string name="version_line">CarHome 1.2.9</string>
     <string name="voice">التنبيهات الصوتية</string>
     <string name="voice_break">حان وقت الاستراحة</string>
     <string name="voice_dust">يُتوقع غبار. قد بحذر</string>
@@ -377,6 +377,18 @@
     <string name="channel_media">وسائط</string>
     <string name="alert_channel_hint">إذا ما سمعت صوت تجربة التنبيه في سيارتك، غيّر هذا الخيار وجرّب مرة ثانية. وتأكد من صوت السيارة.</string>
     <string name="tap_again_new_trip">اضغط مرة ثانية لبدء رحلة جديدة</string>
+    <string name="updates">التحديثات</string>
+    <string name="update_auto">البحث عن تحديثات تلقائيًا</string>
+    <string name="update_auto_hint">يسأل GitHub كل 6 ساعات تقريبًا. لا يُثبَّت شيء حتى تضغط تحديث ثم تثبيت.</string>
+    <string name="update_check">ابحث الآن</string>
+    <string name="update_checking">جارٍ البحث…</string>
+    <string name="update_latest">لديك أحدث إصدار</string>
+    <string name="update_available">يتوفر CarHome %1$s</string>
+    <string name="update_now">تحديث</string>
+    <string name="update_downloading">جارٍ تنزيل CarHome %1$s… %2$d%%</string>
+    <string name="update_installing">جارٍ فتح المثبِّت…</string>
+    <string name="update_allow">اسمح لـ CarHome بتثبيت التطبيقات ثم ارجع</string>
+    <string name="update_failed">حدث خطأ. تأكد من الإنترنت وحاول مرة أخرى.</string>
     <plurals name="voice_prayer_min">
         <item quantity="zero">%1$s الآن</item>
         <item quantity="one">%1$s بعد دقيقة</item>

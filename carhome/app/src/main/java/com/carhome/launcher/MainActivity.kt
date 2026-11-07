@@ -154,6 +154,7 @@ class MainActivity : ComponentActivity() {
             val speedStale by vm.engine.speedStale.collectAsStateWithLifecycle()
             val speedApprox by vm.engine.speedApprox.collectAsStateWithLifecycle()
             val gpsDiag by vm.engine.diag.collectAsStateWithLifecycle()
+            val updateState by core.updater.state.collectAsStateWithLifecycle()
             val overspeed by vm.engine.overspeed.collectAsStateWithLifecycle()
             val limit by vm.engine.limit.collectAsStateWithLifecycle()
             val trip by vm.engine.trip.collectAsStateWithLifecycle()
@@ -246,7 +247,7 @@ class MainActivity : ComponentActivity() {
                                         voiceStatus = voiceStatus, appsByPackage = appsByPackage, places = places,
                                         odometerKm = odometer, oilChangedAtKm = oilAt, obdStatus = obdStatus,
                                         pairedDevices = paired, scores = scores, prayer = prayer, parkedOnly = parkedOnly,
-                                        gps = gpsDiag
+                                        gps = gpsDiag, update = updateState
                                     ),
                                     settingsActions
                                 )
@@ -301,6 +302,7 @@ class MainActivity : ComponentActivity() {
             nearby = { vm.openNearby(it) },
             dismissNotice = { vm.dismissNotice(it) },
             oilChanged = { vm.oilChanged() },
+            updateNow = { vm.installUpdate() },
             newTrip = { vm.newTrip() },
             readCodes = { vm.readCodes() }
         )
@@ -334,7 +336,9 @@ class MainActivity : ComponentActivity() {
             pickPhoto = { runCatching { photoPicker.launch("image/*") } },
             addPlace = { n, cur, addr -> addPlace(n, cur, addr) },
             removePlace = { vm.removePlace(it) },
-            toggleParkedOnly = { vm.toggleParkedOnly(it) }
+            toggleParkedOnly = { vm.toggleParkedOnly(it) },
+            checkUpdate = { vm.checkForUpdate() },
+            installUpdate = { vm.installUpdate() }
         )
     }
 
@@ -363,6 +367,10 @@ class MainActivity : ComponentActivity() {
         // Coming back to CarHome counts as a touch: show the tiles, not the parked clock
         vm.userTouched()
         MediaService.requestRefresh(this)
+        // Back from "Allow CarHome to install apps": carry on with the update
+        if (core.updater.state.value.stage == UpdateStage.NEED_PERMISSION && packageManager.canRequestPackageInstalls()) {
+            vm.installUpdate()
+        }
         vm.engine.start()
         core.obd.sync()
     }

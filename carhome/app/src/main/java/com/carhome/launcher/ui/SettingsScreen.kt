@@ -95,6 +95,8 @@ import com.carhome.launcher.Prayer
 import com.carhome.launcher.PrayerInfo
 import com.carhome.launcher.PrayerMethod
 import com.carhome.launcher.R
+import com.carhome.launcher.UpdateStage
+import com.carhome.launcher.UpdateState
 import com.carhome.launcher.REMINDER_MINUTES
 import com.carhome.launcher.SPEED_LIMIT_MAX
 import com.carhome.launcher.SPEED_LIMIT_MIN
@@ -132,7 +134,8 @@ data class SettingsState(
     val scores: List<DayScore>,
     val prayer: PrayerInfo?,
     val parkedOnly: Set<String>,
-    val gps: GpsDiag
+    val gps: GpsDiag,
+    val update: UpdateState = UpdateState()
 )
 
 class SettingsActions(
@@ -157,7 +160,9 @@ class SettingsActions(
     val pickPhoto: () -> Unit,
     val addPlace: (String, Boolean, String) -> Boolean,
     val removePlace: (String) -> Unit,
-    val toggleParkedOnly: (String) -> Unit
+    val toggleParkedOnly: (String) -> Unit,
+    val checkUpdate: () -> Unit = {},
+    val installUpdate: () -> Unit = {}
 )
 
 @Composable
@@ -939,6 +944,38 @@ private fun PermissionsPage(st: SettingsState, act: SettingsActions) {
         AccessRow(Icons.Rounded.Brightness6, stringResource(R.string.write_settings_access), st.canWriteSystem, a, act.writeSystemAccess)
         AccessRow(Icons.Rounded.Bluetooth, stringResource(R.string.bluetooth_access), st.hasBluetooth, a, act.bluetoothAccess)
         Hint(stringResource(R.string.permissions_hint))
+    }
+    Section(stringResource(R.string.updates)) {
+        Toggle(stringResource(R.string.update_auto), st.settings.updateCheck, a, stringResource(R.string.update_auto_hint)) { on ->
+            act.update { it.copy(updateCheck = on) }
+        }
+        val u = st.update
+        val status = when (u.stage) {
+            UpdateStage.IDLE -> null
+            UpdateStage.CHECKING -> stringResource(R.string.update_checking)
+            UpdateStage.LATEST -> stringResource(R.string.update_latest)
+            UpdateStage.AVAILABLE -> stringResource(R.string.update_available, u.version.orEmpty())
+            UpdateStage.DOWNLOADING -> stringResource(R.string.update_downloading, u.version.orEmpty(), u.progress)
+            UpdateStage.INSTALLING -> stringResource(R.string.update_installing)
+            UpdateStage.NEED_PERMISSION -> stringResource(R.string.update_allow)
+            UpdateStage.FAILED -> stringResource(R.string.update_failed)
+        }
+        if (status != null) {
+            Text(
+                status, fontSize = 16.sp,
+                color = if (u.stage == UpdateStage.AVAILABLE) a else TextPrimary,
+                fontWeight = if (u.stage == UpdateStage.AVAILABLE) FontWeight.Medium else FontWeight.Normal
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            val busy = u.stage == UpdateStage.CHECKING || u.stage == UpdateStage.DOWNLOADING || u.stage == UpdateStage.INSTALLING
+            if (u.version != null && (u.stage == UpdateStage.AVAILABLE || u.stage == UpdateStage.NEED_PERMISSION ||
+                    (u.stage == UpdateStage.FAILED))
+            ) {
+                ActionButton(stringResource(R.string.update_now), a, filled = true, onClick = act.installUpdate)
+            }
+            if (!busy) ActionButton(stringResource(R.string.update_check), a, onClick = act.checkUpdate)
+        }
     }
     Section(stringResource(R.string.about)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

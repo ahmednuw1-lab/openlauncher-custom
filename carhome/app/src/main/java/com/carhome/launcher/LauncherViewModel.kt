@@ -45,8 +45,12 @@ enum class PickFor { TILE, AUTO_APP }
 /** Which page is showing; with [pickFor] the app list is choosing an app. */
 data class Nav(val page: Page = Page.HOME, val pickFor: PickFor? = null, val pickTile: Int = -1)
 
-enum class NoticeKind { BREAK, OIL, DUST, FOG, PRAYER }
-data class Notice(val kind: NoticeKind, val hours: Int = 0, val prayer: Prayer? = null, val at: Long = 0L)
+enum class NoticeKind { BREAK, OIL, DUST, FOG, PRAYER, UPDATE }
+data class Notice(
+    val kind: NoticeKind, val hours: Int = 0, val prayer: Prayer? = null, val at: Long = 0L,
+    /** For UPDATE: the new version, and download progress (-1 when not downloading) */
+    val version: String? = null, val progress: Int = -1
+)
 
 enum class Nearby { MOSQUE, FUEL, COFFEE }
 
@@ -477,6 +481,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             NoticeKind.DUST -> dismissed.add("DUST")
             NoticeKind.FOG -> dismissed.add("FOG")
             NoticeKind.PRAYER -> dismissed.add("PRAYER${n.at}")
+            NoticeKind.UPDATE -> core.prefs.dismissedUpdate = n.version.orEmpty()
         }
         updateNotices()
     }
@@ -520,8 +525,22 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             }
             _weather.value?.fogInHours?.let { h -> if ("FOG" !in dismissed) list += Notice(NoticeKind.FOG, hours = h) }
         }
+        // A new CarHome version: only offered while parked (installing takes a few taps)
+        val u = core.updater.state.value
+        if (u.version != null && u.version != core.prefs.dismissedUpdate && !engine.moving.value) {
+            when (u.stage) {
+                UpdateStage.AVAILABLE, UpdateStage.NEED_PERMISSION, UpdateStage.FAILED ->
+                    list += Notice(NoticeKind.UPDATE, version = u.version)
+                UpdateStage.DOWNLOADING, UpdateStage.INSTALLING ->
+                    list += Notice(NoticeKind.UPDATE, version = u.version, progress = u.progress)
+                else -> Unit
+            }
+        }
         if (list != _notices.value) _notices.value = list
     }
+
+    fun installUpdate() = core.updater.install()
+    fun checkForUpdate() = core.updater.check()
 
     fun userTouched() {
         lastTouch = SystemClock.elapsedRealtime()
@@ -594,6 +613,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                     refreshPrayer()
                     updateNight()
                     refreshSmartPick()
+                    core.updater.checkIfDue()   // itself only every 6 h, and only if switched on
                 }
                 updateNotices()
                 updateParked()
@@ -691,6 +711,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch { _apps.collect { refreshSmartPick() } }
+        viewModelScope.launch { core.updater.state.collect { updateNotices() } }
     }
 }
 

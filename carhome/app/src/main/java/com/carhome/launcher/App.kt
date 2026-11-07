@@ -53,6 +53,7 @@ class Core(val app: Application) {
     val voice = Voice(this)
     val engine = DriveEngine(this)
     val obd = ObdClient(this)
+    val updater by lazy { Updater(this) }
 
     fun updateSettings(block: (LauncherSettings) -> LauncherSettings): Pair<LauncherSettings, LauncherSettings> {
         val old = _settings.value

@@ -78,10 +78,11 @@ jobs:
           APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
           cp "$APK" carhome.apk
           VER=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          CODE=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' app/build.gradle.kts)
           # Marked as the latest release, so this link always gives the newest CarHome:
           # https://github.com/${{ github.repository }}/releases/latest/download/carhome.apk
           gh release create "carhome-${{ github.run_number }}" carhome.apk \
             --target "${{ github.sha }}" \
             --title "CarHome $VER (build ${{ github.run_number }})" \
-            --notes "CarHome $VER. Install carhome.apk over your current CarHome; your settings are kept." \
+            --notes "$(printf 'CarHome %s. Install carhome.apk over your current CarHome; your settings are kept.\n\nversionCode: %s' "$VER" "$CODE")" \
             --latest
