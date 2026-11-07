@@ -446,7 +446,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Prayer, sun, notices, night, parked screen ──────────────────────────
     private var remindedFor = 0L
-    private var dismissed = mutableSetOf<String>()
+    private val dismissed = mutableSetOf<String>()
     private var spokenOil = false
     private var spokenDust = false
     @Volatile private var lastTouch = SystemClock.elapsedRealtime()
@@ -465,10 +465,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissNotice(n: Notice) {
         when (n.kind) {
             NoticeKind.BREAK -> engine.snoozeBreak()
-            NoticeKind.OIL -> dismissed += "OIL"
-            NoticeKind.DUST -> dismissed += "DUST"
-            NoticeKind.FOG -> dismissed += "FOG"
-            NoticeKind.PRAYER -> dismissed += "PRAYER${n.at}"
+            NoticeKind.OIL -> dismissed.add("OIL")
+            NoticeKind.DUST -> dismissed.add("DUST")
+            NoticeKind.FOG -> dismissed.add("FOG")
+            NoticeKind.PRAYER -> dismissed.add("PRAYER${n.at}")
         }
         updateNotices()
     }
@@ -601,7 +601,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     // ── Car start: welcome screen and auto-start ────────────────────────────
     private fun onCarStart() {
         val s = settings.value
-        dismissed = mutableSetOf()
+        dismissed.clear()
         spokenOil = false
         spokenDust = false
         lastTouch = SystemClock.elapsedRealtime()
@@ -625,7 +625,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun testChime() = core.voice.chime()
     fun testVoice() = core.voice.say(R.string.voice_test, force = true)
     fun newTrip() = engine.newTrip()
-    fun oilChanged() { engine.oilChanged(); dismissed -= "OIL"; spokenOil = false }
+    fun oilChanged() { engine.oilChanged(); dismissed.remove("OIL"); spokenOil = false }
     fun adjustOil(km: Double) = engine.adjustOil(km)
     fun pairedObd() = core.obd.pairedDevices()
     fun readCodes() = core.obd.readCodes()

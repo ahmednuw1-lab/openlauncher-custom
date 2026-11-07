@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small white speedometer for the "tracking your drive" notification -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,4C6.48,4 2,8.48 2,14c0,1.84 0.5,3.56 1.37,5.04L4,20h16l0.63,-0.96C21.5,17.56 22,15.84 22,14 22,8.48 17.52,4 12,4zM12,6c4.41,0 8,3.59 8,8 0,1.28 -0.3,2.49 -0.84,3.56L18.6,18H5.4l-0.56,-0.44C4.3,16.49 4,15.28 4,14c0,-4.41 3.59,-8 8,-8zM16.24,9.17l-4.95,3.54a1.5,1.5 0,1 0,1.41 1.41l3.54,-4.95z" />
+</vector>
