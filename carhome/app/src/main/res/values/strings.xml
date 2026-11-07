@@ -310,7 +310,7 @@
     <string name="trip_started">New trip started</string>
     <string name="unit_kmh">Speed in km/h</string>
     <string name="unit_kmh_hint">Off shows mph</string>
-    <string name="version_line">CarHome 1.2.9</string>
+    <string name="version_line">CarHome 1.2.10</string>
     <string name="voice">Spoken alerts</string>
     <string name="voice_break">Time for a break</string>
     <string name="voice_dust">Dust is expected. Drive carefully</string>
@@ -455,6 +455,8 @@
     <string name="voice_camera">Speed camera ahead</string>
     <string name="unit_m">m</string>
     <string name="unit_yd">yd</string>
+    <string name="second_page">Second page of tiles</string>
+    <string name="second_page_hint">Swipe the tiles left or right for more apps. Driving mode shows the first page only.</string>
     <plurals name="voice_prayer_min">
         <item quantity="one">%1$s in %2$d minute</item>
         <item quantity="other">%1$s in %2$d minutes</item>

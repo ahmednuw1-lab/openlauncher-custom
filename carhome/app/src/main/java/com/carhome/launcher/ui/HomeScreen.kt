@@ -94,6 +94,8 @@ import com.carhome.launcher.WeatherInfo
 import com.carhome.launcher.prayerName
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 
 /** Everything the home screen shows. */
 data class HomeState(
@@ -280,9 +282,15 @@ private fun MainColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
             GlassIconButton(Icons.Rounded.Apps, stringResource(R.string.all_apps), act.openApps)
             GlassIconButton(Icons.Rounded.Settings, stringResource(R.string.settings), act.openSettings)
         }
-        // Driving mode shows fewer, bigger tiles
-        val shown = if (st.driving) st.tiles.take(minOf(6, st.tiles.size)) else st.tiles
-        TileGrid(st, act, shown, Modifier.fillMaxWidth().weight(1f))
+        val perPage = s.tileCount
+        if (st.driving || st.tiles.size <= perPage) {
+            // Driving mode shows fewer, bigger tiles (first page only)
+            val first = st.tiles.take(perPage)
+            val shown = if (st.driving) first.take(minOf(6, first.size)) else first
+            TileGrid(st, act, shown, 0, Modifier.fillMaxWidth().weight(1f))
+        } else {
+            TilePages(st, act, perPage, Modifier.fillMaxWidth().weight(1f))
+        }
     }
 }
 
@@ -389,8 +397,31 @@ private data class TileLook(
     val parkedOnly: Set<String>
 )
 
+/** Two pages of tiles: swipe left or right; two dots show which page you're on. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TileGrid(st: HomeState, act: HomeActions, tiles: List<String>, modifier: Modifier) {
+private fun TilePages(st: HomeState, act: HomeActions, perPage: Int, modifier: Modifier) {
+    val pages = (st.tiles.size + perPage - 1) / perPage
+    val pager = rememberPagerState(pageCount = { pages })
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HorizontalPager(state = pager, pageSpacing = 14.dp, modifier = Modifier.fillMaxWidth().weight(1f)) { page ->
+            val from = page * perPage
+            TileGrid(st, act, st.tiles.subList(from, minOf(from + perPage, st.tiles.size)), from, Modifier.fillMaxSize())
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            repeat(pages) { i ->
+                Box(
+                    Modifier.padding(horizontal = 5.dp).size(if (i == pager.currentPage) 10.dp else 8.dp)
+                        .clip(CircleShape)
+                        .background(if (i == pager.currentPage) st.accent else Color.White.copy(alpha = 0.3f))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TileGrid(st: HomeState, act: HomeActions, tiles: List<String>, offset: Int, modifier: Modifier) {
     val look = remember(st.settings, st.accent, st.appsByPackage, st.placesById, st.smartPick, st.driving, st.parkedOnly) {
         TileLook(st.settings, st.accent, st.appsByPackage, st.placesById, st.smartPick, st.driving, st.parkedOnly)
     }
@@ -404,8 +435,8 @@ private fun TileGrid(st: HomeState, act: HomeActions, tiles: List<String>, modif
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 for (c in 0 until cols) {
-                    val index = r * cols + c
-                    val value = tiles.getOrNull(index).orEmpty()
+                    val index = offset + r * cols + c   // position across both pages
+                    val value = tiles.getOrNull(r * cols + c).orEmpty()
                     AppTile(
                         value = value,
                         st = look,

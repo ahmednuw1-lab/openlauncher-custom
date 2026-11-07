@@ -122,6 +122,7 @@ data class LauncherSettings(
     val carReminders: Boolean = true,         // paperwork / maintenance banners (nothing until you add one)
     val speedCameras: Boolean = false,        // warn before OpenStreetMap speed cameras
     val cameraSound: Boolean = true,
+    val secondPage: Boolean = false,          // a second, swipeable page of tiles
 )
 
 val DEFAULT_CARDS = listOf(CardType.CLOCK, CardType.SPEED, CardType.MUSIC)
@@ -238,18 +239,21 @@ class Prefs(context: Context) {
     }
 
     /** Tile contents: package name, "place:<id>", "smart", or "" for empty. Always [count] long. */
-    fun loadTiles(count: Int): List<String> = TileSlots.visible(savedTiles(), count)
+    /** Tile pages: "tiles" is the first page, "tiles2" the optional second one. */
+    fun loadTiles(count: Int, key: String = "tiles"): List<String> = TileSlots.visible(savedTiles(key), count)
 
-    private fun savedTiles(): List<String> = sp.getString("tiles", null)?.split('|') ?: emptyList()
+    private fun savedTiles(key: String): List<String> = sp.getString(key, null)?.split('|') ?: emptyList()
 
     /** Saves the visible tiles; slots hidden by a smaller tile count are kept. */
-    fun saveTiles(tiles: List<String>) {
-        sp.edit().putString("tiles", TileSlots.merge(tiles, savedTiles()).joinToString("|")).apply()
+    fun saveTiles(tiles: List<String>, key: String = "tiles") {
+        sp.edit().putString(key, TileSlots.merge(tiles, savedTiles(key)).joinToString("|")).apply()
     }
 
-    /** Clears an uninstalled app or deleted place from every slot, hidden ones too. */
+    /** Clears an uninstalled app or deleted place from every slot of both pages, hidden ones too. */
     fun forgetTile(value: String) {
-        sp.edit().putString("tiles", TileSlots.forget(savedTiles(), value).joinToString("|")).apply()
+        val e = sp.edit()
+        for (key in listOf("tiles", "tiles2")) e.putString(key, TileSlots.forget(savedTiles(key), value).joinToString("|"))
+        e.apply()
     }
 
     fun loadPlaces(): List<Place> = runCatching {
@@ -498,6 +502,7 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         updateCheck = o.optBoolean("updateCheck", d.updateCheck),
         carReminders = o.optBoolean("carReminders", d.carReminders),
         speedCameras = o.optBoolean("speedCameras", d.speedCameras),
+        secondPage = o.optBoolean("secondPage", d.secondPage),
         cameraSound = o.optBoolean("cameraSound", d.cameraSound),
         speedAlert = o.optBoolean("speedAlert", d.speedAlert),
         speedLimit = o.optInt("speedLimit", d.speedLimit).coerceIn(SPEED_LIMIT_MIN, SPEED_LIMIT_MAX),
@@ -580,6 +585,7 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("updateCheck", s.updateCheck)
     put("carReminders", s.carReminders)
     put("speedCameras", s.speedCameras)
+    put("secondPage", s.secondPage)
     put("cameraSound", s.cameraSound)
     put("speedAlert", s.speedAlert)
     put("speedLimit", s.speedLimit)

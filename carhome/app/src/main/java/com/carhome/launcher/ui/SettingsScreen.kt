@@ -404,6 +404,9 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
     val a = st.accent
     Section(stringResource(R.string.home_tiles)) {
         Chips(null, TILE_COUNTS.map { "$it" }, TILE_COUNTS.indexOf(s.tileCount), a) { i -> act.update { it.copy(tileCount = TILE_COUNTS[i]) } }
+        Toggle(stringResource(R.string.second_page), s.secondPage, a, stringResource(R.string.second_page_hint)) { v ->
+            act.update { it.copy(secondPage = v) }
+        }
         Toggle(stringResource(R.string.tile_labels), s.showTileLabels, a) { v -> act.update { it.copy(showTileLabels = v) } }
     }
     Section(stringResource(R.string.info_cards)) {

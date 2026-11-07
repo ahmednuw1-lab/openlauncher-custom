@@ -69,7 +69,11 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     val settings: StateFlow<LauncherSettings> = core.settings
 
-    private val _tiles = MutableStateFlow(prefs.loadTiles(settings.value.tileCount))
+    /** Both pages one after the other: page 1 is the first [LauncherSettings.tileCount] tiles. */
+    private fun loadAllTiles(s: LauncherSettings): List<String> =
+        prefs.loadTiles(s.tileCount) + if (s.secondPage) prefs.loadTiles(s.tileCount, "tiles2") else emptyList()
+
+    private val _tiles = MutableStateFlow(loadAllTiles(settings.value))
     val tiles: StateFlow<List<String>> = _tiles.asStateFlow()
 
     private val _places = MutableStateFlow(prefs.loadPlaces())
@@ -151,7 +155,9 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (index !in list.indices) return
         list[index] = value
         _tiles.value = list
-        prefs.saveTiles(list)
+        val n = settings.value.tileCount
+        prefs.saveTiles(list.take(n))
+        if (list.size > n) prefs.saveTiles(list.drop(n), "tiles2")
         refreshSmartPick()
     }
 
@@ -166,9 +172,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     // ── Settings ─────────────────────────────────────────────────────────────
     fun updateSettings(block: (LauncherSettings) -> LauncherSettings) {
         val (old, new) = core.updateSettings(block)
-        if (new.tileCount != old.tileCount) {
-            // Shrinking only hides the tail (it stays saved); growing brings it back
-            _tiles.value = prefs.loadTiles(new.tileCount)
+        if (new.tileCount != old.tileCount || new.secondPage != old.secondPage) {
+            // Shrinking only hides the tail (it stays saved); growing brings it back.
+            // Turning the second page off hides it; on again brings its tiles back.
+            _tiles.value = loadAllTiles(new)
         }
         if (new.bubble != old.bubble || new.backgroundTracking != old.backgroundTracking) DriveService.sync(ctx)
         if (new.obd != old.obd || new.obdAddress != old.obdAddress) core.obd.sync()
