@@ -310,7 +310,7 @@
     <string name="trip_started">بدأت رحلة جديدة</string>
     <string name="unit_kmh">السرعة بالكيلومتر</string>
     <string name="unit_kmh_hint">عند الإيقاف تظهر بالميل</string>
-    <string name="version_line">CarHome 1.2.2</string>
+    <string name="version_line">CarHome 1.2.3</string>
     <string name="voice">التنبيهات الصوتية</string>
     <string name="voice_break">حان وقت الاستراحة</string>
     <string name="voice_dust">يُتوقع غبار. قد بحذر</string>
@@ -363,4 +363,5 @@
     <string name="gps_help">افحص هذا وأنت تمشي في الشارع. إذا بقيت الأقمار 0 بعد دقائق، فهوائي GPS في الجهاز لا يعمل أو غير موجود. ابحث في إعدادات الجهاز نفسه عن خيار GPS أو GPS السيارة، أو خذ السرعة من السيارة بقطعة OBD.</string>
     <string name="open_location_settings">فتح إعدادات الموقع</string>
     <string name="credits">بيانات الطقس من Open-Meteo.com. حدود السرعة © OpenStreetMap contributors.</string>
+    <string name="weak_signal">إشارة GPS ضعيفة</string>
 </resources>

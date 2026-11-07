@@ -368,6 +368,7 @@ fun SpeedCard(
     accent: Color,
     satellites: Int,
     fromCar: Boolean,
+    stale: Boolean,
     onRequestPermission: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -396,12 +397,14 @@ fun SpeedCard(
                 val unit = stringResource(if (settings.useKmh) R.string.kmh else R.string.mph)
                 val gauge = settings.speedStyle == SpeedStyle.GAUGE && !compact
                 val number = if (value == null) "—" else shown.roundToInt().toString()
-                val numberColor = if (overspeed) AlertRed else TextPrimary
+                val numberColor = (if (overspeed) AlertRed else TextPrimary).copy(alpha = if (stale) 0.45f else 1f)
                 val unitText = if (fromCar) "$unit · ${stringResource(R.string.from_car)}" else unit
                 val status: @Composable () -> Unit = {
                     when {
                         value == null ->
                             Text(stringResource(R.string.waiting_gps_sats, satellites), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                        stale ->
+                            Text(stringResource(R.string.weak_signal), fontSize = 12.sp, color = WarnAmber, maxLines = 1)
                         overspeed ->
                             Text(stringResource(R.string.over_limit), fontSize = 13.sp, color = AlertRed, fontWeight = FontWeight.SemiBold, maxLines = 1)
                         settings.speedAlert && limit.limit != null ->

@@ -150,6 +150,7 @@ class MainActivity : ComponentActivity() {
             val gpsState by vm.engine.gpsState.collectAsStateWithLifecycle()
             val satellites by vm.engine.satellites.collectAsStateWithLifecycle()
             val speedFromCar by vm.engine.speedFromCar.collectAsStateWithLifecycle()
+            val speedStale by vm.engine.speedStale.collectAsStateWithLifecycle()
             val gpsDiag by vm.engine.diag.collectAsStateWithLifecycle()
             val overspeed by vm.engine.overspeed.collectAsStateWithLifecycle()
             val limit by vm.engine.limit.collectAsStateWithLifecycle()
@@ -204,7 +205,7 @@ class MainActivity : ComponentActivity() {
                                         placesById = placesById, smartPick = smartPick?.let { appsByPackage[it] },
                                         weather = weather, dustInHours = dust, hasLocation = hasLocation,
                                         nowPlaying = nowPlaying, hasMusicAccess = hasMusic, speedMps = speedMps,
-                                        gpsState = gpsState, satellites = satellites.first, speedFromCar = speedFromCar,
+                                        gpsState = gpsState, satellites = satellites.first, speedFromCar = speedFromCar, speedStale = speedStale,
                                         overspeed = overspeed, limit = limit, prayer = prayer,
                                         trip = trip, lastTrip = lastTrip, obdStatus = obdStatus, obdData = obdData,
                                         driving = driving, notices = notices, parkedOnly = parkedOnly

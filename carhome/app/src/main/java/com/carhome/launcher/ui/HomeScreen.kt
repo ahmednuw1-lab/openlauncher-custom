@@ -109,6 +109,7 @@ data class HomeState(
     val gpsState: GpsState,
     val satellites: Int,
     val speedFromCar: Boolean,
+    val speedStale: Boolean,
     val overspeed: Boolean,
     val limit: LimitInfo,
     val prayer: PrayerInfo?,
@@ -210,7 +211,7 @@ private fun InfoColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
                 CardType.CLOCK -> ClockCard(s, st.driving, m, compact = short)
                 CardType.SPEED -> SpeedCard(
                     speedMps = st.speedMps, gpsState = st.gpsState, settings = s, limit = st.limit,
-                    overspeed = st.overspeed, accent = st.accent, satellites = st.satellites, fromCar = st.speedFromCar,
+                    overspeed = st.overspeed, accent = st.accent, satellites = st.satellites, fromCar = st.speedFromCar, stale = st.speedStale,
                     onRequestPermission = act.requestLocation, modifier = m
                 )
                 CardType.MUSIC -> MusicCard(

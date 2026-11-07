@@ -310,7 +310,7 @@
     <string name="trip_started">New trip started</string>
     <string name="unit_kmh">Speed in km/h</string>
     <string name="unit_kmh_hint">Off shows mph</string>
-    <string name="version_line">CarHome 1.2.2</string>
+    <string name="version_line">CarHome 1.2.3</string>
     <string name="voice">Spoken alerts</string>
     <string name="voice_break">Time for a break</string>
     <string name="voice_dust">Dust is expected. Drive carefully</string>
@@ -363,4 +363,5 @@
     <string name="gps_help">Check this while driving outdoors. If satellites stay at 0 after a few minutes, the box\'s GPS antenna isn\'t working or isn\'t there. Look in the box\'s own settings for a GPS or car GPS option, or get the speed from the car with an OBD adapter.</string>
     <string name="open_location_settings">Open location settings</string>
     <string name="credits">Weather data by Open-Meteo.com. Road speed limits © OpenStreetMap contributors.</string>
+    <string name="weak_signal">Weak GPS signal</string>
 </resources>

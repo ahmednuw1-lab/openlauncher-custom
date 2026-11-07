@@ -107,6 +107,10 @@ class DriveEngine(private val core: Core) {
     /** True while the speed shown comes from the car (OBD adapter), not GPS. */
     val speedFromCar: StateFlow<Boolean> = _speedFromCar.asStateFlow()
 
+    private val _speedStale = MutableStateFlow(false)
+    /** True while the speed shown is the last one received a few seconds ago (weak GPS signal). */
+    val speedStale: StateFlow<Boolean> = _speedStale.asStateFlow()
+
     private val _satellites = MutableStateFlow(0 to 0)
     /** Satellites seen, and used in the position fix. */
     val satellites: StateFlow<Pair<Int, Int>> = _satellites.asStateFlow()
@@ -348,7 +352,7 @@ class DriveEngine(private val core: Core) {
         // Speed from the car (OBD adapter): always with "Car", or when GPS is silent with "Automatic"
         val obd = core.obd.data.value
         val carFresh = core.obd.status.value == ObdStatus.CONNECTED && obd.speedKmh != null && now - obd.at < 4_000L
-        val gpsFresh = lastFixAt > 0 && now - lastFixAt <= 6_000L && lastFix?.let { it.hasSpeed() || it.accuracy <= 25f } == true
+        val gpsFresh = lastFixAt > 0 && now - lastFixAt <= 15_000L && lastFix?.let { it.hasSpeed() || it.accuracy <= 25f } == true
         usingCar = carFresh && (s.speedSource == SpeedSource.CAR || (s.speedSource == SpeedSource.AUTO && !gpsFresh))
         if (usingCar) {
             val v = (obd.speedKmh ?: 0) / 3.6f
@@ -363,8 +367,9 @@ class DriveEngine(private val core: Core) {
         }
         _speedFromCar.value = usingCar
 
-        // A fix older than 6 s means GPS lost — show "waiting" instead of a stale number
-        if (!usingCar && gpsOn && lastFixAt > 0 && now - lastFixAt > 6_000L) {
+        // Weak signal: keep the last speed (shown faded) for up to 15 s, then show "waiting"
+        _speedStale.value = !usingCar && _speedMps.value != null && lastFixAt > 0 && now - lastFixAt > 3_000L
+        if (!usingCar && gpsOn && lastFixAt > 0 && now - lastFixAt > 15_000L) {
             if (_speedMps.value != null) _speedMps.value = null
             if (_gpsState.value == GpsState.OK) _gpsState.value = GpsState.SEARCHING
             prevSample = null
