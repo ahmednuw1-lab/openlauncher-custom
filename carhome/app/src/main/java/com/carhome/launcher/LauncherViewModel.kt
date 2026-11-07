@@ -45,11 +45,13 @@ enum class PickFor { TILE, AUTO_APP }
 /** Which page is showing; with [pickFor] the app list is choosing an app. */
 data class Nav(val page: Page = Page.HOME, val pickFor: PickFor? = null, val pickTile: Int = -1)
 
-enum class NoticeKind { BREAK, OIL, DUST, FOG, PRAYER, UPDATE }
+enum class NoticeKind { BREAK, OIL, DUST, FOG, PRAYER, UPDATE, REMINDER }
 data class Notice(
     val kind: NoticeKind, val hours: Int = 0, val prayer: Prayer? = null, val at: Long = 0L,
     /** For UPDATE: the new version, and download progress (-1 when not downloading) */
-    val version: String? = null, val progress: Int = -1
+    val version: String? = null, val progress: Int = -1,
+    /** For REMINDER: which one, and how close it is */
+    val due: DueStatus? = null
 )
 
 enum class Nearby { MOSQUE, FUEL, COFFEE }
@@ -482,6 +484,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             NoticeKind.FOG -> dismissed.add("FOG")
             NoticeKind.PRAYER -> dismissed.add("PRAYER${n.at}")
             NoticeKind.UPDATE -> core.prefs.dismissedUpdate = n.version.orEmpty()
+            NoticeKind.REMINDER -> n.due?.let { snoozeReminder(it.reminder.id) }
         }
         updateNotices()
     }
@@ -525,6 +528,12 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             }
             _weather.value?.fogInHours?.let { h -> if ("FOG" !in dismissed) list += Notice(NoticeKind.FOG, hours = h) }
         }
+        // Car paperwork and maintenance: while parked, the most urgent first
+        if (s.carReminders && !engine.moving.value) {
+            Reminders.due(_reminders.value, now, engine.odometerKm.value, reminderSnooze).forEach { st ->
+                list += Notice(NoticeKind.REMINDER, due = st)
+            }
+        }
         // A new CarHome version: only offered while parked (installing takes a few taps)
         val u = core.updater.state.value
         if (u.version != null && u.version != core.prefs.dismissedUpdate && !engine.moving.value) {
@@ -537,6 +546,31 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         if (list != _notices.value) _notices.value = list
+    }
+
+    // ── Car reminders ─────────────────────────────────────────────────────────
+    private val _reminders = MutableStateFlow(prefs.loadReminders())
+    val reminders: StateFlow<List<CarReminder>> = _reminders.asStateFlow()
+    private var reminderSnooze: Map<String, Long> = prefs.loadReminderSnooze()
+
+    fun addReminder(r: CarReminder) {
+        _reminders.value = _reminders.value + r
+        prefs.saveReminders(_reminders.value)
+        updateNotices()
+    }
+
+    fun removeReminder(id: String) {
+        _reminders.value = _reminders.value.filterNot { it.id == id }
+        prefs.saveReminders(_reminders.value)
+        reminderSnooze = reminderSnooze - id
+        prefs.saveReminderSnooze(reminderSnooze)
+        updateNotices()
+    }
+
+    /** Closed on the home screen: shown again in 3 days if still due. */
+    private fun snoozeReminder(id: String) {
+        reminderSnooze = reminderSnooze + (id to System.currentTimeMillis() + 3 * 86_400_000L)
+        prefs.saveReminderSnooze(reminderSnooze)
     }
 
     // ── What's new ────────────────────────────────────────────────────────────

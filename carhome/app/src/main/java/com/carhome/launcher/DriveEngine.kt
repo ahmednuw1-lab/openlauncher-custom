@@ -90,6 +90,15 @@ class DriveEngine(private val core: Core) {
     private val _lastTrip = MutableStateFlow(core.prefs.loadTrip("last_trip"))
     val lastTrip: StateFlow<TripStats?> = _lastTrip.asStateFlow()
 
+    private val _history = MutableStateFlow(core.prefs.loadTripHistory())
+    /** Finished trips, newest first. */
+    val history: StateFlow<List<PastTrip>> = _history.asStateFlow()
+
+    fun clearHistory() {
+        _history.value = emptyList()
+        core.prefs.saveTripHistory(emptyList())
+    }
+
     private val _odometer = MutableStateFlow(core.prefs.odometerKm)
     val odometerKm: StateFlow<Double> = _odometer.asStateFlow()
 
@@ -588,6 +597,9 @@ class DriveEngine(private val core: Core) {
             _lastTrip.value = t
             core.prefs.saveTrip(t, "last_trip")
             if (core.settings.value.driveScore) t.score?.let { core.prefs.addScore(it) }
+            val past = PastTrip(t.startedAt, System.currentTimeMillis(), t.distanceM, t.movingMs, t.maxMps, t.harshEvents)
+            _history.value = TripHistory.add(_history.value, past)
+            core.prefs.saveTripHistory(_history.value)
         }
         _trip.value = TripStats()
         saveTrip()

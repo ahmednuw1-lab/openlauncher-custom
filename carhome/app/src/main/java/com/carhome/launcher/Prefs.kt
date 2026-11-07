@@ -119,6 +119,7 @@ data class LauncherSettings(
     val voicePrayer: Boolean = true,
     val voiceReminders: Boolean = true,
     val updateCheck: Boolean = true,          // ask GitHub every 6 h for a new CarHome
+    val carReminders: Boolean = true,         // paperwork / maintenance banners (nothing until you add one)
 )
 
 val DEFAULT_CARDS = listOf(CardType.CLOCK, CardType.SPEED, CardType.MUSIC)
@@ -182,6 +183,26 @@ const val TILE_SMART = "smart"
 
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("carhome", Context.MODE_PRIVATE)
+
+    /** Everything CarHome has saved, for a backup file. */
+    fun exportAll(): Map<String, *> = sp.all
+
+    /** Replaces everything (except this box's own values) with a backup's values. */
+    fun importAll(values: Map<String, Any>): Boolean {
+        val e = sp.edit()
+        sp.all.keys.filter { it !in Backup.LOCAL_ONLY }.forEach { e.remove(it) }
+        for ((k, v) in values) {
+            when (v) {
+                is String -> e.putString(k, v)
+                is Int -> e.putInt(k, v)
+                is Long -> e.putLong(k, v)
+                is Float -> e.putFloat(k, v)
+                is Boolean -> e.putBoolean(k, v)
+                is Set<*> -> e.putStringSet(k, v.filterIsInstance<String>().toSet())
+            }
+        }
+        return e.commit()   // written before CarHome restarts
+    }
 
     // Settings are one JSON string: easy to extend, and missing keys fall back to defaults
     fun loadSettings(): LauncherSettings {
@@ -288,6 +309,69 @@ class Prefs(context: Context) {
     var oilChangedAtKm: Double
         get() = sp.getString("oil_at_km", null)?.toDoubleOrNull()?.takeIf { it.isFinite() } ?: 0.0
         set(v) { if (v.isFinite()) sp.edit().putString("oil_at_km", v.toString()).apply() }
+
+    /** Car paperwork and maintenance reminders (see [Reminders]). */
+    fun loadReminders(): List<CarReminder> = runCatching {
+        val arr = JSONArray(sp.getString("car_reminders", "[]"))
+        (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val type = ReminderType.entries.firstOrNull { it.name == o.optString("type") } ?: return@mapNotNull null
+            CarReminder(
+                id = o.optString("id").ifBlank { return@mapNotNull null },
+                type = type,
+                name = o.optString("name", ""),
+                dueDate = if (o.has("date")) o.getLong("date") else null,
+                dueKm = if (o.has("km")) o.getDouble("km").takeIf { it.isFinite() } else null
+            )
+        }
+    }.getOrDefault(emptyList())
+
+    fun saveReminders(list: List<CarReminder>) {
+        val arr = JSONArray()
+        list.forEach { r ->
+            runCatching {
+                arr.put(JSONObject().apply {
+                    put("id", r.id); put("type", r.type.name); put("name", r.name)
+                    r.dueDate?.let { put("date", it) }
+                    r.dueKm?.let { put("km", it) }
+                })
+            }
+        }
+        sp.edit().putString("car_reminders", arr.toString()).apply()
+    }
+
+    /** Reminder id → closed on the home screen until this time. */
+    fun loadReminderSnooze(): Map<String, Long> = runCatching {
+        val o = JSONObject(sp.getString("reminder_snooze", "{}") ?: "{}")
+        o.keys().asSequence().associateWith { o.getLong(it) }
+    }.getOrDefault(emptyMap())
+
+    fun saveReminderSnooze(m: Map<String, Long>) {
+        sp.edit().putString("reminder_snooze", JSONObject(m as Map<*, *>).toString()).apply()
+    }
+
+    /** Finished trips, newest first (see [TripHistory]). */
+    fun loadTripHistory(): List<PastTrip> = runCatching {
+        val arr = JSONArray(sp.getString("trip_history", "[]"))
+        (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            PastTrip(
+                startedAt = o.getLong("s"), endedAt = o.getLong("e"), distanceM = o.getDouble("d"),
+                movingMs = o.getLong("m"), maxMps = o.optDouble("x", 0.0).toFloat(), harshEvents = o.optInt("h", 0)
+            ).takeIf { it.distanceM.isFinite() }
+        }
+    }.getOrDefault(emptyList())
+
+    fun saveTripHistory(trips: List<PastTrip>) {
+        val arr = JSONArray()
+        trips.forEach { t ->
+            runCatching {
+                arr.put(JSONObject().put("s", t.startedAt).put("e", t.endedAt).put("d", t.distanceM)
+                    .put("m", t.movingMs).put("x", t.maxMps.toDouble()).put("h", t.harshEvents))
+            }
+        }
+        sp.edit().putString("trip_history", arr.toString()).apply()
+    }
 
     fun loadTrip(key: String = "trip"): TripStats? = runCatching {
         val o = JSONObject(sp.getString(key, null) ?: return null)
@@ -410,6 +494,7 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         speedSource = o.enumOr("speedSource", d.speedSource),
         approxSpeed = o.optBoolean("approxSpeed", d.approxSpeed),
         updateCheck = o.optBoolean("updateCheck", d.updateCheck),
+        carReminders = o.optBoolean("carReminders", d.carReminders),
         speedAlert = o.optBoolean("speedAlert", d.speedAlert),
         speedLimit = o.optInt("speedLimit", d.speedLimit).coerceIn(SPEED_LIMIT_MIN, SPEED_LIMIT_MAX),
         alertMode = o.enumOr("alertMode", d.alertMode),
@@ -489,6 +574,7 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("speedSource", s.speedSource.name)
     put("approxSpeed", s.approxSpeed)
     put("updateCheck", s.updateCheck)
+    put("carReminders", s.carReminders)
     put("speedAlert", s.speedAlert)
     put("speedLimit", s.speedLimit)
     put("alertMode", s.alertMode.name)

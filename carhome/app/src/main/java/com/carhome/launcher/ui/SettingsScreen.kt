@@ -114,6 +114,14 @@ import com.carhome.launcher.prayerName
 import java.util.Locale
 import kotlin.math.roundToInt
 import androidx.compose.ui.text.input.TextFieldValue
+import com.carhome.launcher.PastTrip
+import com.carhome.launcher.TripHistory
+import com.carhome.launcher.TripTotals
+import androidx.compose.ui.res.pluralStringResource
+import com.carhome.launcher.CarReminder
+import com.carhome.launcher.ReminderType
+import com.carhome.launcher.Reminders
+import androidx.compose.ui.platform.LocalContext
 
 data class SettingsState(
     val settings: LauncherSettings,
@@ -137,7 +145,9 @@ data class SettingsState(
     val prayer: PrayerInfo?,
     val parkedOnly: Set<String>,
     val gps: GpsDiag,
-    val update: UpdateState = UpdateState()
+    val update: UpdateState = UpdateState(),
+    val tripHistory: List<PastTrip> = emptyList(),
+    val reminders: List<CarReminder> = emptyList()
 )
 
 class SettingsActions(
@@ -165,7 +175,12 @@ class SettingsActions(
     val toggleParkedOnly: (String) -> Unit,
     val checkUpdate: () -> Unit = {},
     val installUpdate: () -> Unit = {},
-    val showWhatsNew: () -> Unit = {}
+    val showWhatsNew: () -> Unit = {},
+    val saveBackup: () -> Unit = {},
+    val loadBackup: () -> Unit = {},
+    val clearTripHistory: () -> Unit = {},
+    val addReminder: (CarReminder) -> Unit = {},
+    val removeReminder: (String) -> Unit = {}
 )
 
 @Composable
@@ -702,6 +717,136 @@ private fun TripPage(st: SettingsState, act: SettingsActions) {
             Hint(stringResource(R.string.obd_status, stringResource(obdStatusText(st.obdStatus))))
         }
     }
+    ReminderSection(st, act)
+    TripHistorySection(st, act)
+}
+
+@Composable
+private fun ReminderSection(st: SettingsState, act: SettingsActions) {
+    val s = st.settings
+    val a = st.accent
+    val ctx = LocalContext.current
+    val locale = appLocale()
+    val unit = stringResource(if (s.useKmh) R.string.km else R.string.mi)
+    fun shownKm(km: Double) = String.format(Locale.US, "%,d", (if (s.useKmh) km else km / 1.609344).roundToInt())
+    Section(stringResource(R.string.reminders)) {
+        Toggle(stringResource(R.string.reminders_on), s.carReminders, a, stringResource(R.string.reminders_hint)) { v ->
+            act.update { it.copy(carReminders = v) }
+        }
+        val dateFmt = remember(locale) { java.text.SimpleDateFormat("d MMM yyyy", locale) }
+        st.reminders.forEach { r ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(reminderIcon(r.type), null, tint = a, modifier = Modifier.size(26.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(reminderName(r), fontSize = 17.sp, color = TextPrimary)
+                    val parts = listOfNotNull(
+                        r.dueDate?.let { dateFmt.format(java.util.Date(it)) },
+                        r.dueKm?.let { "${shownKm(it)} $unit" }
+                    )
+                    Text(parts.joinToString("  ·  "), fontSize = 14.sp, color = TextSecondary)
+                }
+                GlassIconButton(Icons.Rounded.Close, stringResource(R.string.reminder_delete), { act.removeReminder(r.id) }, size = 48.dp)
+            }
+        }
+
+        // Adding one: pick what it is, then a date (or how many km from now)
+        var adding by remember { mutableStateOf<ReminderType?>(null) }
+        var customName by remember { mutableStateOf("") }
+        var kmAhead by remember { mutableStateOf(10_000) }
+        val type = adding
+        if (type == null) {
+            ActionButton(stringResource(R.string.reminder_add), a) { adding = ReminderType.INSURANCE }
+        } else {
+            Chips(
+                stringResource(R.string.reminder_what),
+                ReminderType.entries.map { stringResource(reminderNameRes(it)) },
+                ReminderType.entries.indexOf(type), a
+            ) { i -> adding = ReminderType.entries[i] }
+            if (type == ReminderType.CUSTOM) {
+                OutlinedTextField(
+                    value = customName,
+                    onValueChange = { customName = it.take(30) },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.reminder_name)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (type.byKm) {
+                Stepper(
+                    stringResource(R.string.reminder_in_km), "${String.format(Locale.US, "%,d", kmAhead)} $unit",
+                    onMinus = { kmAhead = (kmAhead - 1_000).coerceAtLeast(1_000) },
+                    onPlus = { kmAhead = (kmAhead + 1_000).coerceAtMost(100_000) }
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (type.byKm) {
+                    ActionButton(stringResource(R.string.reminder_save), a, filled = true) {
+                        val ahead = if (s.useKmh) kmAhead.toDouble() else kmAhead * 1.609344
+                        act.addReminder(CarReminder("r" + System.currentTimeMillis(), type, dueKm = st.odometerKm + ahead))
+                        adding = null
+                    }
+                } else {
+                    ActionButton(stringResource(R.string.reminder_pick_date), a, filled = true) {
+                        val c = java.util.Calendar.getInstance().apply { add(java.util.Calendar.MONTH, 1) }
+                        val name = customName.trim()
+                        android.app.DatePickerDialog(ctx, { _, y, m, d ->
+                            act.addReminder(CarReminder("r" + System.currentTimeMillis(), type, name = name, dueDate = Reminders.dayStart(y, m, d)))
+                            adding = null
+                            customName = ""
+                        }, c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH)).show()
+                    }
+                }
+                ActionButton(stringResource(R.string.cancel), a) { adding = null }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TripHistorySection(st: SettingsState, act: SettingsActions) {
+    val s = st.settings
+    val a = st.accent
+    val unit = stringResource(if (s.useKmh) R.string.km else R.string.mi)
+    fun dist(m: Double) = String.format(Locale.US, "%.1f", if (s.useKmh) m / 1000.0 else m / 1609.344)
+    fun time(ms: Long) = (ms / 60_000L).let { String.format(Locale.US, "%d:%02d", it / 60, it % 60) }
+    Section(stringResource(R.string.trip_history)) {
+        val trips = st.tripHistory
+        if (trips.isEmpty()) {
+            Hint(stringResource(R.string.trip_history_empty))
+            return@Section
+        }
+        val now = remember(trips) { System.currentTimeMillis() }
+        val week = remember(trips) { TripHistory.lastDays(trips, now, 7) }
+        val month = remember(trips) { TripHistory.thisMonth(trips, now) }
+        @Composable
+        fun TotalsRow(label: String, t: TripTotals) {
+            val fuel = if (s.fuelCost) "  ·  " + stringResource(
+                R.string.fuel_cost_value,
+                String.format(Locale.US, "%.2f", TripHistory.fuelCost(t.distanceM, s.fuelConsumption, s.fuelPrice))
+            ) else ""
+            Text(label, fontSize = 15.sp, color = TextSecondary)
+            Text(
+                "${dist(t.distanceM)} $unit  ·  ${time(t.movingMs)}  ·  " +
+                    pluralStringResource(R.plurals.trips_count, t.trips, t.trips) + fuel,
+                fontSize = 18.sp, color = TextPrimary, fontWeight = FontWeight.Medium
+            )
+        }
+        TotalsRow(stringResource(R.string.trip_last_7_days), week)
+        TotalsRow(stringResource(R.string.trip_this_month), month)
+        Spacer(Modifier.height(4.dp))
+        val locale = appLocale()
+        val dayFmt = remember(locale) { java.text.SimpleDateFormat("EEE d MMM", locale) }
+        trips.take(15).forEach { t ->
+            Text(
+                dayFmt.format(java.util.Date(t.startedAt)) + "  " + formatTime(t.startedAt, s.use24h, locale) +
+                    "  ·  ${dist(t.distanceM)} $unit  ·  ${time(t.movingMs)}",
+                fontSize = 15.sp, color = TextPrimary
+            )
+        }
+        if (trips.size > 15) Hint(stringResource(R.string.trip_history_more, trips.size))
+        ActionButton(stringResource(R.string.trip_history_clear), a, onClick = act.clearTripHistory)
+    }
 }
 
 fun obdStatusText(s: ObdStatus): Int = when (s) {
@@ -991,6 +1136,13 @@ private fun PermissionsPage(st: SettingsState, act: SettingsActions) {
             }
             if (!busy) ActionButton(stringResource(R.string.update_check), a, onClick = act.checkUpdate)
             ActionButton(stringResource(R.string.whats_new_show), a, onClick = act.showWhatsNew)
+        }
+    }
+    Section(stringResource(R.string.backup)) {
+        Hint(stringResource(R.string.backup_hint))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ActionButton(stringResource(R.string.backup_save), a, filled = true, onClick = act.saveBackup)
+            ActionButton(stringResource(R.string.backup_load), a, onClick = act.loadBackup)
         }
     }
     Section(stringResource(R.string.about)) {

@@ -103,6 +103,60 @@ class MainActivity : ComponentActivity() {
         if (uri != null) vm.setPhoto(uri)
     }
 
+    // ── Settings backup ──────────────────────────────────────────────────────
+    private val backupSaver = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val ok = runCatching {
+            contentResolver.openOutputStream(uri, "wt")!!.use {
+                it.write(Backup.encode(core.prefs.exportAll(), vm.versionName).toByteArray())
+            }
+        }.isSuccess
+        Toast.makeText(this, if (ok) R.string.backup_saved else R.string.backup_failed, Toast.LENGTH_LONG).show()
+    }
+
+    private val backupLoader = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val values = runCatching {
+            contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+        }.getOrNull()?.let { Backup.decode(it) }
+        if (values == null) {
+            Toast.makeText(this, R.string.backup_not_carhome, Toast.LENGTH_LONG).show()
+            return@registerForActivityResult
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.backup_restore_title)
+            .setMessage(R.string.backup_restore_message)
+            .setPositiveButton(R.string.backup_restore_yes) { _, _ -> restoreBackup(values) }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun saveBackup() {
+        val name = "CarHome-settings-" + java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date()) + ".json"
+        runCatching { backupSaver.launch(name) }
+            .onFailure { Toast.makeText(this, R.string.no_file_picker, Toast.LENGTH_LONG).show() }
+    }
+
+    private fun loadBackup() {
+        runCatching { backupLoader.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) }
+            .onFailure { Toast.makeText(this, R.string.no_file_picker, Toast.LENGTH_LONG).show() }
+    }
+
+    /** Writes the backup's values, then restarts CarHome so everything reloads from them. */
+    private fun restoreBackup(values: Map<String, Any>) {
+        if (!core.prefs.importAll(values)) {
+            Toast.makeText(this, R.string.backup_failed, Toast.LENGTH_LONG).show()
+            return
+        }
+        Toast.makeText(this, R.string.backup_restored, Toast.LENGTH_LONG).show()
+        val restart = Intent(this, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        android.os.Handler(mainLooper).postDelayed({
+            startActivity(restart)
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }, 1_200L)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hideSystemBars()
@@ -155,6 +209,8 @@ class MainActivity : ComponentActivity() {
             val speedApprox by vm.engine.speedApprox.collectAsStateWithLifecycle()
             val gpsDiag by vm.engine.diag.collectAsStateWithLifecycle()
             val updateState by core.updater.state.collectAsStateWithLifecycle()
+            val tripHistory by vm.engine.history.collectAsStateWithLifecycle()
+            val reminders by vm.reminders.collectAsStateWithLifecycle()
             val overspeed by vm.engine.overspeed.collectAsStateWithLifecycle()
             val limit by vm.engine.limit.collectAsStateWithLifecycle()
             val trip by vm.engine.trip.collectAsStateWithLifecycle()
@@ -247,7 +303,7 @@ class MainActivity : ComponentActivity() {
                                         voiceStatus = voiceStatus, appsByPackage = appsByPackage, places = places,
                                         odometerKm = odometer, oilChangedAtKm = oilAt, obdStatus = obdStatus,
                                         pairedDevices = paired, scores = scores, prayer = prayer, parkedOnly = parkedOnly,
-                                        gps = gpsDiag, update = updateState
+                                        gps = gpsDiag, update = updateState, tripHistory = tripHistory, reminders = reminders
                                     ),
                                     settingsActions
                                 )
@@ -305,6 +361,7 @@ class MainActivity : ComponentActivity() {
             dismissNotice = { vm.dismissNotice(it) },
             oilChanged = { vm.oilChanged() },
             updateNow = { vm.installUpdate() },
+            openReminders = { vm.openSettingsPage(SettingsPage.TRIP); vm.openSettings() },
             newTrip = { vm.newTrip() },
             readCodes = { vm.readCodes() }
         )
@@ -341,7 +398,18 @@ class MainActivity : ComponentActivity() {
             toggleParkedOnly = { vm.toggleParkedOnly(it) },
             checkUpdate = { vm.checkForUpdate() },
             installUpdate = { vm.installUpdate() },
-            showWhatsNew = { vm.showWhatsNew(); vm.goHome() }
+            showWhatsNew = { vm.showWhatsNew(); vm.goHome() },
+            saveBackup = { saveBackup() },
+            loadBackup = { loadBackup() },
+            addReminder = { vm.addReminder(it) },
+            removeReminder = { vm.removeReminder(it) },
+            clearTripHistory = {
+                android.app.AlertDialog.Builder(this)
+                    .setMessage(R.string.trip_history_clear_confirm)
+                    .setPositiveButton(R.string.trip_history_clear) { _, _ -> vm.engine.clearHistory() }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
         )
     }
 

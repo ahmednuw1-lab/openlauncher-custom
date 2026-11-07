@@ -143,6 +143,7 @@ class HomeActions(
     val dismissNotice: (Notice) -> Unit,
     val oilChanged: () -> Unit,
     val updateNow: () -> Unit,
+    val openReminders: () -> Unit,
     val newTrip: () -> Unit,
     val readCodes: () -> Unit
 )
@@ -307,6 +308,7 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
                 stringResource(prayerName(n.prayer ?: com.carhome.launcher.Prayer.DHUHR)),
                 formatTime(n.at, s.use24h, appLocale())
             )
+            NoticeKind.REMINDER -> n.due!!.let { reminderIcon(it.reminder.type) to reminderDueText(it, s.useKmh) }
             NoticeKind.UPDATE -> Icons.Rounded.SystemUpdate to
                 (if (n.progress >= 0) stringResource(R.string.update_downloading, n.version.orEmpty(), n.progress)
                 else stringResource(R.string.update_available, n.version.orEmpty()))
@@ -330,6 +332,7 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
                 NoticeKind.PRAYER -> if (s.nearbyButtons) {
                     SmallPill(Icons.Rounded.Mosque, stringResource(R.string.nearest_mosque), st.accent) { act.nearby(Nearby.MOSQUE) }
                 }
+                NoticeKind.REMINDER -> SmallPill(Icons.Rounded.Edit, stringResource(R.string.reminder_update), st.accent, act.openReminders)
                 NoticeKind.UPDATE -> if (n.progress < 0) {
                     SmallPill(Icons.Rounded.SystemUpdate, stringResource(R.string.update_now), st.accent, act.updateNow)
                 }
