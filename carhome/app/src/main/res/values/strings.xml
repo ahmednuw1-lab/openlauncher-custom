@@ -310,7 +310,7 @@
     <string name="trip_started">New trip started</string>
     <string name="unit_kmh">Speed in km/h</string>
     <string name="unit_kmh_hint">Off shows mph</string>
-    <string name="version_line">CarHome 1.2.1</string>
+    <string name="version_line">CarHome 1.2.2</string>
     <string name="voice">Spoken alerts</string>
     <string name="voice_break">Time for a break</string>
     <string name="voice_dust">Dust is expected. Drive carefully</string>
@@ -342,7 +342,7 @@
     <string name="src_auto">Automatic</string>
     <string name="src_gps">GPS only</string>
     <string name="src_car">Car (OBD)</string>
-    <string name="speed_source_hint">Automatic uses GPS, and switches to the car\'s own speed from an OBD adapter when GPS has no signal. Car needs the adapter (Trip and car → Car data).</string>
+    <string name="speed_source_hint">Automatic uses GPS, and the car\'s own speed from an OBD adapter when GPS has no signal. Car (OBD) uses the adapter first, and GPS when no adapter is connected.</string>
     <string name="gps_status">GPS status</string>
     <string name="gps_permission">Location permission</string>
     <string name="gps_location_setting">Location service</string>

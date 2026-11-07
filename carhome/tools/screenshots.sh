@@ -152,6 +152,18 @@ adb shell input tap 48 48
 sleep 2
 shot 12-settings-arabic
 
+# 13: a wide, low car screen (1920x720 at 240 dpi = 1280x480 dp), with four cards
+adb shell cmd locale set-app-locales $PKG --locales ar || true
+adb shell wm size 1920x720
+adb shell wm density 240
+prefs '{"tileCount":8,"cards":["CLOCK","SPEED","MUSIC","CAR"],"showHijri":true}' "$APPS7" "$BOOT"
+start
+sleep 14
+shot 13-short-screen-arabic
+drive 6
+shot 14-short-screen-speed
+park
+
 # Crash and CarHome log lines, to catch problems a screenshot can't show
 adb logcat -d -b crash > "$OUT/crash-log.txt" || true
 adb logcat -d | grep -E "AndroidRuntime|CarHome|carhome" | tail -300 > "$OUT/app-log.txt" || true

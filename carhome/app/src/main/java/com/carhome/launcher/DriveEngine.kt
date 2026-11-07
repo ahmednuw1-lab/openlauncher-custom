@@ -356,7 +356,8 @@ class DriveEngine(private val core: Core) {
             if (v > 0.5f) addDistance(v.toDouble())   // one second at this speed
             if (v > _trip.value.maxMps) _trip.value = _trip.value.copy(maxMps = v)
             _gpsState.value = GpsState.OK
-        } else if (s.speedSource == SpeedSource.CAR || (!gpsFresh && _speedFromCar.value)) {
+        } else if (!gpsFresh && _speedFromCar.value) {
+            // The car stopped sending speed and GPS has nothing either
             _speedMps.value = null
             if (_gpsState.value == GpsState.OK) _gpsState.value = GpsState.SEARCHING
         }

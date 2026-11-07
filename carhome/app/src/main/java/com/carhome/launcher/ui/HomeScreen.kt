@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -199,11 +200,14 @@ private fun InfoColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
     val s = st.settings
     val cards = s.cards.ifEmpty { listOf(CardType.CLOCK) }
     val onlyClock = cards.all { it == CardType.CLOCK }
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    BoxWithConstraints(modifier) {
+    // Wide, low car screens: smaller clock and tighter gaps so every card keeps its content
+    val short = maxHeight < 560.dp
+    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(if (short) 10.dp else 16.dp)) {
         cards.forEach { card ->
             val m = if (card == CardType.CLOCK && !onlyClock) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().weight(1f)
             when (card) {
-                CardType.CLOCK -> ClockCard(s, st.driving, m)
+                CardType.CLOCK -> ClockCard(s, st.driving, m, compact = short)
                 CardType.SPEED -> SpeedCard(
                     speedMps = st.speedMps, gpsState = st.gpsState, settings = s, limit = st.limit,
                     overspeed = st.overspeed, accent = st.accent, satellites = st.satellites, fromCar = st.speedFromCar,
@@ -228,6 +232,7 @@ private fun InfoColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
                 CardType.CAR -> CarCard(st.obdStatus, st.obdData, s.obd, st.accent, act.readCodes, act.openCarSettings, m)
             }
         }
+    }
     }
 }
 

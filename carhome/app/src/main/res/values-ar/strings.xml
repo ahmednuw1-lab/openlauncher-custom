@@ -310,7 +310,7 @@
     <string name="trip_started">بدأت رحلة جديدة</string>
     <string name="unit_kmh">السرعة بالكيلومتر</string>
     <string name="unit_kmh_hint">عند الإيقاف تظهر بالميل</string>
-    <string name="version_line">CarHome 1.2.1</string>
+    <string name="version_line">CarHome 1.2.2</string>
     <string name="voice">التنبيهات الصوتية</string>
     <string name="voice_break">حان وقت الاستراحة</string>
     <string name="voice_dust">يُتوقع غبار. قد بحذر</string>
@@ -342,7 +342,7 @@
     <string name="src_auto">تلقائي</string>
     <string name="src_gps">GPS فقط</string>
     <string name="src_car">السيارة (OBD)</string>
-    <string name="speed_source_hint">التلقائي يستخدم GPS، ويتحول لسرعة السيارة نفسها من قطعة OBD إذا ما فيه إشارة GPS. خيار السيارة يحتاج القطعة (الرحلة والسيارة ← بيانات السيارة).</string>
+    <string name="speed_source_hint">التلقائي يستخدم GPS، وسرعة السيارة من قطعة OBD إذا ما فيه إشارة GPS. خيار السيارة يستخدم القطعة أولاً، وGPS إذا ما فيه قطعة متصلة.</string>
     <string name="gps_status">حالة GPS</string>
     <string name="gps_permission">إذن الموقع</string>
     <string name="gps_location_setting">خدمة الموقع</string>

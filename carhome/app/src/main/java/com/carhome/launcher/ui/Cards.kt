@@ -131,7 +131,7 @@ fun rememberNow(stepMs: Long = 1_000L): Long {
 // ── Clock ─────────────────────────────────────────────────────────────────────
 
 @Composable
-fun ClockCard(settings: LauncherSettings, driving: Boolean, modifier: Modifier = Modifier) {
+fun ClockCard(settings: LauncherSettings, driving: Boolean, modifier: Modifier = Modifier, compact: Boolean = false) {
     val now = rememberNow()
     val locale = appLocale()
     val pattern = when {
@@ -152,18 +152,24 @@ fun ClockCard(settings: LauncherSettings, driving: Boolean, modifier: Modifier =
         if (settings.showHijri) Astro.hijriDate(now, locale) else null
     }
     Column(
-        modifier = modifier.glass().padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = modifier.glass().padding(horizontal = 24.dp, vertical = if (compact) 8.dp else 16.dp),
         verticalArrangement = Arrangement.Center
     ) {
+        val big = when {
+            compact && settings.clockSeconds -> 40.sp
+            compact -> 50.sp
+            settings.clockSeconds -> 58.sp
+            else -> 72.sp
+        }
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(time, fontSize = if (settings.clockSeconds) 58.sp else 72.sp, fontWeight = FontWeight.Light, color = TextPrimary, lineHeight = 76.sp, maxLines = 1)
+            Text(time, fontSize = big, fontWeight = FontWeight.Light, color = TextPrimary, lineHeight = big * 1.05f, maxLines = 1)
             if (amPm.isNotEmpty()) {
                 Spacer(Modifier.width(8.dp))
                 Text(amPm, fontSize = 22.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 12.dp))
             }
         }
-        if (settings.showDate && !driving) Text(date, fontSize = 18.sp, color = TextSecondary, fontWeight = FontWeight.Medium, maxLines = 1)
-        if (hijri != null && !driving) Text(hijri, fontSize = 15.sp, color = TextSecondary, maxLines = 1)
+        if (settings.showDate && !driving) Text(date, fontSize = if (compact) 15.sp else 18.sp, color = TextSecondary, fontWeight = FontWeight.Medium, maxLines = 1)
+        if (hijri != null && !driving) Text(hijri, fontSize = if (compact) 13.sp else 15.sp, color = TextSecondary, maxLines = 1)
     }
 }
 
@@ -270,18 +276,20 @@ fun WeatherCard(
 ) {
     val locale = appLocale()
     BoxWithConstraints(
-        modifier = modifier.glass().let { if (!hasLocation) it.clickable(onClick = onRequestLocation) else it }.padding(18.dp)
+        modifier = modifier.glass().let { if (!hasLocation) it.clickable(onClick = onRequestLocation) else it }
+            .padding(horizontal = 18.dp, vertical = 10.dp)
     ) {
         val tall = maxHeight >= 190.dp
+        val short = maxHeight < 110.dp
         when {
             !hasLocation -> CardMessage(Icons.Rounded.LocationOn, stringResource(R.string.weather_off), accent)
             weather == null -> CardMessage(Icons.Rounded.Cloud, stringResource(R.string.weather_loading), TextSecondary)
             else -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
                 val kind = weatherKind(weather.code)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(weatherIcon(kind, weather.isDay), null, tint = accent, modifier = Modifier.size(44.dp))
+                    Icon(weatherIcon(kind, weather.isDay), null, tint = accent, modifier = Modifier.size(if (short) 30.dp else 44.dp))
                     Spacer(Modifier.width(12.dp))
-                    Text("${weather.temperatureC.roundToInt()}°", fontSize = 46.sp, fontWeight = FontWeight.Light, color = TextPrimary)
+                    Text("${weather.temperatureC.roundToInt()}°", fontSize = if (short) 32.sp else 46.sp, fontWeight = FontWeight.Light, color = TextPrimary)
                     Spacer(Modifier.width(10.dp))
                     Text(stringResource(kind.label), fontSize = 16.sp, color = TextSecondary, maxLines = 2)
                 }
@@ -309,10 +317,21 @@ fun WeatherCard(
 
 @Composable
 private fun CardMessage(icon: ImageVector, text: String, tint: Color) {
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(34.dp))
-        Spacer(Modifier.height(8.dp))
-        Text(text, color = TextSecondary, fontSize = 15.sp, maxLines = 2)
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        if (maxHeight < 110.dp) {
+            // Short screens: icon and text side by side
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, tint = tint, modifier = Modifier.size(26.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(text, color = TextSecondary, fontSize = 14.sp, maxLines = 2)
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(icon, null, tint = tint, modifier = Modifier.size(34.dp))
+                Spacer(Modifier.height(8.dp))
+                Text(text, color = TextSecondary, fontSize = 15.sp, maxLines = 2)
+            }
+        }
     }
 }
 
@@ -353,16 +372,18 @@ fun SpeedCard(
     modifier: Modifier = Modifier
 ) {
     val bg by animateColorAsState(if (overspeed) AlertRed.copy(alpha = 0.28f) else Color.Transparent, label = "overBg")
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .glass()
             .background(bg)
             .let {
                 if (gpsState == GpsState.NO_PERMISSION || gpsState == GpsState.LOCATION_OFF) it.clickable(onClick = onRequestPermission) else it
             }
-            .padding(14.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
+        // Short cards (wide, low car screens) get a one-line layout instead of the round gauge
+        val compact = maxHeight < 150.dp
         when (gpsState) {
             GpsState.NO_PERMISSION -> CardMessage(Icons.Rounded.Speed, stringResource(R.string.speed_needs_gps), accent)
             GpsState.LOCATION_OFF -> CardMessage(Icons.Rounded.LocationOn, stringResource(R.string.location_off), WarnAmber)
@@ -373,7 +394,47 @@ fun SpeedCard(
                 val maxScale = if (settings.useKmh) 200f else 130f
                 val arcColor = if (overspeed) AlertRed else accent
                 val unit = stringResource(if (settings.useKmh) R.string.kmh else R.string.mph)
-                val gauge = settings.speedStyle == SpeedStyle.GAUGE
+                val gauge = settings.speedStyle == SpeedStyle.GAUGE && !compact
+                val number = if (value == null) "—" else shown.roundToInt().toString()
+                val numberColor = if (overspeed) AlertRed else TextPrimary
+                val unitText = if (fromCar) "$unit · ${stringResource(R.string.from_car)}" else unit
+                val status: @Composable () -> Unit = {
+                    when {
+                        value == null ->
+                            Text(stringResource(R.string.waiting_gps_sats, satellites), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                        overspeed ->
+                            Text(stringResource(R.string.over_limit), fontSize = 13.sp, color = AlertRed, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        settings.speedAlert && limit.limit != null ->
+                            Text(stringResource(R.string.limit_short, limit.limit), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                        settings.speedAlert && settings.roadLimit ->
+                            Text(stringResource(R.string.no_road_limit), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                    }
+                }
+
+                if (compact) {
+                    Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(number, fontSize = 46.sp, fontWeight = FontWeight.Light, color = numberColor, lineHeight = 48.sp, maxLines = 1)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(unitText, fontSize = 15.sp, color = TextSecondary, maxLines = 1)
+                            status()
+                        }
+                        if (settings.roadLimit && limit.roadLimit != null) RoadSign(limit.roadLimit, 40.dp)
+                    }
+                    // A thin bar along the bottom keeps the "gauge" feel
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.08f))) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth((shown / maxScale).coerceIn(0f, 1f))
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(arcColor)
+                            )
+                        }
+                    }
+                    return@BoxWithConstraints
+                }
 
                 if (gauge) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -398,23 +459,14 @@ fun SpeedCard(
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = if (value == null) "—" else shown.roundToInt().toString(),
+                        text = number,
                         fontSize = if (gauge) 54.sp else 84.sp,
                         fontWeight = FontWeight.Light,
-                        color = if (overspeed) AlertRed else TextPrimary,
+                        color = numberColor,
                         lineHeight = if (gauge) 56.sp else 86.sp
                     )
-                    Text(if (fromCar) "$unit · ${stringResource(R.string.from_car)}" else unit, fontSize = 15.sp, color = TextSecondary)
-                    when {
-                        value == null ->
-                            Text(stringResource(R.string.waiting_gps_sats, satellites), fontSize = 12.sp, color = TextSecondary)
-                        overspeed ->
-                            Text(stringResource(R.string.over_limit), fontSize = 13.sp, color = AlertRed, fontWeight = FontWeight.SemiBold)
-                        settings.speedAlert && limit.limit != null ->
-                            Text(stringResource(R.string.limit_short, limit.limit), fontSize = 12.sp, color = TextSecondary)
-                        settings.speedAlert && settings.roadLimit ->
-                            Text(stringResource(R.string.no_road_limit), fontSize = 12.sp, color = TextSecondary)
-                    }
+                    Text(unitText, fontSize = 15.sp, color = TextSecondary)
+                    status()
                 }
                 if (settings.roadLimit && limit.roadLimit != null) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {
@@ -668,8 +720,20 @@ fun TripCard(
     modifier: Modifier = Modifier
 ) {
     val unit = stringResource(if (settings.useKmh) R.string.kmh else R.string.mph)
-    BoxWithConstraints(modifier = modifier.glass().padding(16.dp)) {
+    BoxWithConstraints(modifier = modifier.glass().padding(horizontal = 16.dp, vertical = 10.dp)) {
         val tall = maxHeight >= 200.dp
+        if (maxHeight < 130.dp) {
+            val loc = appLocale()
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Stat(stringResource(R.string.distance), distanceText(trip.distanceM, settings.useKmh), Modifier.weight(1f))
+                Stat(stringResource(R.string.drive_time), durationText(trip.movingMs), Modifier.weight(1f))
+                Stat(stringResource(R.string.avg_speed), String.format(loc, "%d %s", speedInUnit(trip.avgMps, settings.useKmh).roundToInt(), unit), Modifier.weight(1f))
+                Box(Modifier.size(30.dp).clip(CircleShape).clickable(onClick = onReset), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Refresh, stringResource(R.string.new_trip), tint = TextSecondary, modifier = Modifier.size(20.dp))
+                }
+            }
+            return@BoxWithConstraints
+        }
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.this_trip), fontSize = 14.sp, color = TextSecondary, modifier = Modifier.weight(1f))
@@ -736,7 +800,8 @@ fun CarCard(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.glass().padding(16.dp)) {
+    BoxWithConstraints(modifier = modifier.glass().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        val compact = maxHeight < 130.dp
         if (!enabled || status != ObdStatus.CONNECTED) {
             val msg = when {
                 !enabled -> R.string.obd_off
@@ -746,16 +811,19 @@ fun CarCard(
                 status == ObdStatus.CONNECTING -> R.string.obd_connecting
                 else -> R.string.obd_failed
             }
-            Column(
-                Modifier.fillMaxSize().clickable(onClick = onOpenSettings),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(Icons.Rounded.Bluetooth, null, tint = accent, modifier = Modifier.size(30.dp))
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(msg), fontSize = 14.sp, color = TextSecondary, maxLines = 2)
+            Box(Modifier.fillMaxSize().clickable(onClick = onOpenSettings)) {
+                CardMessage(Icons.Rounded.Bluetooth, stringResource(msg), accent)
             }
-            return@Box
+            return@BoxWithConstraints
+        }
+        if (compact) {
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Stat(stringResource(R.string.rpm), data.rpm?.toString() ?: "—", Modifier.weight(1f))
+                Stat(stringResource(R.string.engine_temp), data.coolantC?.let { "$it°C" } ?: "—", Modifier.weight(1f))
+                Stat(stringResource(R.string.fuel_level), data.fuelPercent?.let { "$it%" } ?: "—", Modifier.weight(1f))
+                Stat(stringResource(R.string.battery), data.voltage?.let { String.format(Locale.US, "%.1f V", it) } ?: "—", Modifier.weight(1f))
+            }
+            return@BoxWithConstraints
         }
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
             Row(Modifier.fillMaxWidth()) {
