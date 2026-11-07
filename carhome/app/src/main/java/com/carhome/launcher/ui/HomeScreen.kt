@@ -1,23 +1,22 @@
 package com.carhome.launcher.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,473 +25,304 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Air
 import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Coffee
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.FlashOn
-import androidx.compose.material.icons.rounded.Grain
-import androidx.compose.material.icons.rounded.LocationOn
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.NightsStay
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.LocalGasStation
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Mosque
+import androidx.compose.material.icons.rounded.OilBarrel
+import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Umbrella
-import androidx.compose.material.icons.rounded.WbCloudy
-import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.carhome.launcher.AppEntry
+import com.carhome.launcher.CardType
 import com.carhome.launcher.GpsState
-import com.carhome.launcher.HourForecast
-import com.carhome.launcher.speedInUnit
-import java.util.Calendar
 import com.carhome.launcher.LauncherSettings
+import com.carhome.launcher.LimitInfo
+import com.carhome.launcher.Nearby
+import com.carhome.launcher.Notice
+import com.carhome.launcher.NoticeKind
 import com.carhome.launcher.NowPlaying
+import com.carhome.launcher.ObdData
+import com.carhome.launcher.ObdStatus
+import com.carhome.launcher.Place
+import com.carhome.launcher.PrayerInfo
 import com.carhome.launcher.R
+import com.carhome.launcher.Side
+import com.carhome.launcher.TILE_PLACE
+import com.carhome.launcher.TILE_SMART
+import com.carhome.launcher.TripStats
 import com.carhome.launcher.WeatherInfo
-import com.carhome.launcher.WeatherKind
-import com.carhome.launcher.weatherKind
-import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlin.math.roundToInt
+import com.carhome.launcher.prayerName
+import kotlin.math.abs
+
+/** Everything the home screen shows. */
+data class HomeState(
+    val settings: LauncherSettings,
+    val accent: Color,
+    val tiles: List<String>,
+    val appsByPackage: Map<String, AppEntry>,
+    val placesById: Map<String, Place>,
+    val smartPick: AppEntry?,
+    val weather: WeatherInfo?,
+    val dustInHours: Int?,
+    val hasLocation: Boolean,
+    val nowPlaying: NowPlaying?,
+    val hasMusicAccess: Boolean,
+    val speedMps: Float?,
+    val gpsState: GpsState,
+    val overspeed: Boolean,
+    val limit: LimitInfo,
+    val prayer: PrayerInfo?,
+    val trip: TripStats,
+    val lastTrip: TripStats?,
+    val obdStatus: ObdStatus,
+    val obdData: ObdData,
+    val driving: Boolean,
+    val notices: List<Notice>,
+    val parkedOnly: Set<String>
+)
+
+/** What the home screen can ask for. */
+class HomeActions(
+    val openTile: (index: Int, value: String) -> Unit,
+    val changeTile: (index: Int) -> Unit,
+    val removeTile: (index: Int) -> Unit,
+    val toggleParkedOnly: (pkg: String) -> Unit,
+    val openApps: () -> Unit,
+    val openSettings: () -> Unit,
+    val openCarSettings: () -> Unit,
+    val requestLocation: () -> Unit,
+    val requestMusicAccess: () -> Unit,
+    val openMusicApp: (String) -> Unit,
+    val playPause: () -> Unit,
+    val next: () -> Unit,
+    val previous: () -> Unit,
+    val nearby: (Nearby) -> Unit,
+    val dismissNotice: (Notice) -> Unit,
+    val oilChanged: () -> Unit,
+    val newTrip: () -> Unit,
+    val readCodes: () -> Unit
+)
 
 @Composable
-fun HomeScreen(
-    settings: LauncherSettings,
-    accent: Color,
-    tiles: List<String>,
-    appsByPackage: Map<String, AppEntry>,
-    weather: WeatherInfo?,
-    hasLocation: Boolean,
-    nowPlaying: NowPlaying?,
-    hasMusicAccess: Boolean,
-    speedMps: Float?,
-    gpsState: GpsState,
-    overspeed: Boolean,
-    onTileClick: (index: Int, pkg: String) -> Unit,
-    onTileChange: (index: Int) -> Unit,
-    onTileRemove: (index: Int) -> Unit,
-    onOpenApps: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onRequestLocation: () -> Unit,
-    onRequestMusicAccess: () -> Unit,
-    onOpenMusicApp: (String) -> Unit,
-    onPlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        // ── Left column: time, weather, music ──────────────────────────────
-        Column(
-            modifier = Modifier.weight(0.36f).fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            ClockCard(use24h = settings.use24h, modifier = Modifier.fillMaxWidth())
-            if (settings.showSpeed) {
-                SpeedCard(
-                    speedMps = speedMps,
-                    gpsState = gpsState,
-                    settings = settings,
-                    overspeed = overspeed,
-                    accent = accent,
-                    onRequestPermission = onRequestLocation,
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                )
-            }
-            MusicCard(
-                nowPlaying = nowPlaying,
-                hasAccess = hasMusicAccess,
-                accent = accent,
-                onRequestAccess = onRequestMusicAccess,
-                onOpenApp = onOpenMusicApp,
-                onPlayPause = onPlayPause,
-                onNext = onNext,
-                onPrevious = onPrevious,
-                modifier = Modifier.fillMaxWidth().weight(1f)
-            )
-        }
+fun HomeScreen(st: HomeState, act: HomeActions) {
+    val s = st.settings
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val currentAct by rememberUpdatedState(act)
 
-        // ── Right side: header buttons + your app tiles ─────────────────────
-        Column(
-            modifier = Modifier.weight(0.64f).fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (settings.showWeather) {
-                    WeatherStrip(
-                        weather = weather,
-                        hasLocation = hasLocation,
-                        use24h = settings.use24h,
-                        accent = accent,
-                        onRequestLocation = onRequestLocation,
-                        modifier = Modifier.weight(1f)
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.hint_tiles),
-                        color = TextSecondary,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                GlassIconButton(Icons.Rounded.Apps, stringResource(R.string.all_apps), onOpenApps)
-                GlassIconButton(Icons.Rounded.Settings, stringResource(R.string.settings), onOpenSettings)
-            }
-            TileGrid(
-                tiles = tiles,
-                appsByPackage = appsByPackage,
-                accent = accent,
-                onTileClick = onTileClick,
-                onTileChange = onTileChange,
-                onTileRemove = onTileRemove,
-                modifier = Modifier.fillMaxWidth().weight(1f)
-            )
-        }
-    }
-}
-
-// ── Clock ─────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun ClockCard(use24h: Boolean, modifier: Modifier = Modifier) {
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            now = System.currentTimeMillis()
-            delay(1_000L - now % 1_000L)
-        }
-    }
-    val locale = Locale.getDefault()
-    val time = remember(now / 60_000L, use24h, locale) {
-        SimpleDateFormat(if (use24h) "HH:mm" else "h:mm", locale).format(Date(now))
-    }
-    val amPm = remember(now / 60_000L, use24h, locale) {
-        if (use24h) "" else SimpleDateFormat("a", locale).format(Date(now))
-    }
-    val date = remember(now / 60_000L, locale) {
-        SimpleDateFormat("EEEE، d MMMM".takeIf { locale.language == "ar" } ?: "EEEE, d MMMM", locale).format(Date(now))
-    }
-    Column(modifier = modifier.glass().padding(horizontal = 24.dp, vertical = 18.dp)) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(time, fontSize = 72.sp, fontWeight = FontWeight.Light, color = TextPrimary, lineHeight = 76.sp)
-            if (amPm.isNotEmpty()) {
-                Spacer(Modifier.width(8.dp))
-                Text(amPm, fontSize = 22.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 12.dp))
-            }
-        }
-        Text(date, fontSize = 18.sp, color = TextSecondary, fontWeight = FontWeight.Medium)
-    }
-}
-
-// ── Weather ───────────────────────────────────────────────────────────────────
-
-private fun weatherIcon(kind: WeatherKind, isDay: Boolean): ImageVector = when (kind) {
-    WeatherKind.CLEAR -> if (isDay) Icons.Rounded.WbSunny else Icons.Rounded.NightsStay
-    WeatherKind.PARTLY -> Icons.Rounded.WbCloudy
-    WeatherKind.CLOUDY, WeatherKind.FOG -> Icons.Rounded.Cloud
-    WeatherKind.DRIZZLE -> Icons.Rounded.Grain
-    WeatherKind.RAIN -> Icons.Rounded.Umbrella
-    WeatherKind.SNOW -> Icons.Rounded.AcUnit
-    WeatherKind.STORM -> Icons.Rounded.FlashOn
-}
-
-private fun hourLabel(hour: Int, use24h: Boolean): String {
-    val cal = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, hour)
-        set(Calendar.MINUTE, 0)
-    }
-    return SimpleDateFormat(if (use24h) "HH:mm" else "h a", Locale.getDefault()).format(cal.time)
-}
-
-/** Current weather plus the next 5 hours, as one glass pill across the top. */
-@Composable
-private fun WeatherStrip(
-    weather: WeatherInfo?,
-    hasLocation: Boolean,
-    use24h: Boolean,
-    accent: Color,
-    onRequestLocation: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .height(64.dp)
-            .glass(RoundedCornerShape(32.dp))
-            .let { if (!hasLocation) it.clickable(onClick = onRequestLocation) else it }
-            .padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        when {
-            !hasLocation -> {
-                Icon(Icons.Rounded.LocationOn, null, tint = accent, modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(stringResource(R.string.weather_off), color = TextSecondary, fontSize = 15.sp, maxLines = 1)
-            }
-            weather == null -> {
-                Icon(Icons.Rounded.Cloud, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(stringResource(R.string.weather_loading), color = TextSecondary, fontSize = 15.sp, maxLines = 1)
-            }
-            else -> {
-                val kind = weatherKind(weather.code)
-                Icon(weatherIcon(kind, weather.isDay), null, tint = accent, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.width(10.dp))
-                Text("${weather.temperatureC.roundToInt()}°", fontSize = 28.sp, fontWeight = FontWeight.Light, color = TextPrimary)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(kind.label), fontSize = 14.sp, color = TextSecondary,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
-                )
-                if (weather.nextHours.isNotEmpty()) {
-                    Spacer(Modifier.width(14.dp))
-                    Box(Modifier.width(1.dp).height(34.dp).background(GlassStroke))
-                    Spacer(Modifier.width(6.dp))
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        weather.nextHours.forEach { h -> HourCell(h, use24h) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HourCell(h: HourForecast, use24h: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(hourLabel(h.hour, use24h), fontSize = 11.sp, color = TextSecondary, maxLines = 1)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(weatherIcon(weatherKind(h.code), h.isDay), null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(3.dp))
-            Text("${h.temperatureC.roundToInt()}°", fontSize = 14.sp, color = TextPrimary)
-        }
-    }
-}
-
-// ── Speed ─────────────────────────────────────────────────────────────────────
-
-private val AlertRed = Color(0xFFEF4444)
-
-/** Live GPS speed with a 270° arc gauge; turns red while over the alert limit. */
-@Composable
-private fun SpeedCard(
-    speedMps: Float?,
-    gpsState: GpsState,
-    settings: LauncherSettings,
-    overspeed: Boolean,
-    accent: Color,
-    onRequestPermission: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val bg by animateColorAsState(if (overspeed) AlertRed.copy(alpha = 0.28f) else Color.Transparent, label = "overBg")
     Box(
-        modifier = modifier
-            .glass()
-            .background(bg)
-            .let { if (gpsState == GpsState.NO_PERMISSION) it.clickable(onClick = onRequestPermission) else it }
-            .padding(14.dp),
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .let { m ->
+                if (!s.swipeMusic) m else m.pointerInput(rtl) {
+                    var total = 0f
+                    val needed = 140.dp.toPx()
+                    detectHorizontalDragGestures(
+                        onDragStart = { total = 0f },
+                        onDragEnd = {
+                            if (abs(total) > needed) {
+                                // Swipe toward the "next" side of the screen skips forward
+                                val forward = if (rtl) total > 0 else total < 0
+                                if (forward) currentAct.next() else currentAct.previous()
+                            }
+                        }
+                    ) { change, dx ->
+                        total += dx
+                        change.consume()
+                    }
+                }
+            }
     ) {
-        when (gpsState) {
-            GpsState.NO_PERMISSION -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Rounded.Speed, null, tint = accent, modifier = Modifier.size(40.dp))
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.speed_needs_gps), color = TextSecondary, fontSize = 15.sp)
+        Row(
+            modifier = Modifier.fillMaxSize().padding(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            val frac = s.infoWidth.fraction
+            val info: @Composable RowScope.() -> Unit = {
+                InfoColumn(st, act, Modifier.weight(frac).fillMaxHeight())
             }
-            GpsState.NO_HARDWARE -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Rounded.Speed, null, tint = TextSecondary, modifier = Modifier.size(40.dp))
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.no_gps_hw), color = TextSecondary, fontSize = 15.sp)
+            val main: @Composable RowScope.() -> Unit = {
+                MainColumn(st, act, Modifier.weight(1f - frac).fillMaxHeight())
             }
-            else -> {
-                val value = speedMps?.let { speedInUnit(it, settings.useKmh) }
-                val shown by animateFloatAsState(value ?: 0f, tween(700), label = "speed")
-                val maxScale = if (settings.useKmh) 200f else 130f
-                val arcColor = if (overspeed) AlertRed else accent
-                val unit = stringResource(if (settings.useKmh) R.string.kmh else R.string.mph)
+            if (s.infoSide == Side.START) { info(); main() } else { main(); info() }
+        }
 
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val stroke = 10.dp.toPx()
-                    val d = minOf(size.width, size.height) - stroke
-                    val topLeft = Offset((size.width - d) / 2f, (size.height - d) / 2f)
-                    val arcSize = Size(d, d)
-                    drawArc(
-                        color = Color.White.copy(alpha = 0.08f), startAngle = 135f, sweepAngle = 270f,
-                        useCenter = false, topLeft = topLeft, size = arcSize,
-                        style = Stroke(width = stroke, cap = StrokeCap.Round)
-                    )
-                    val frac = (shown / maxScale).coerceIn(0f, 1f)
-                    if (frac > 0f) {
-                        drawArc(
-                            color = arcColor, startAngle = 135f, sweepAngle = 270f * frac,
-                            useCenter = false, topLeft = topLeft, size = arcSize,
-                            style = Stroke(width = stroke, cap = StrokeCap.Round)
-                        )
-                    }
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = if (value == null) "—" else shown.roundToInt().toString(),
-                        fontSize = 54.sp,
-                        fontWeight = FontWeight.Light,
-                        color = if (overspeed) AlertRed else TextPrimary,
-                        lineHeight = 56.sp
-                    )
-                    Text(unit, fontSize = 15.sp, color = TextSecondary)
-                    when {
-                        value == null ->
-                            Text(stringResource(R.string.waiting_gps), fontSize = 12.sp, color = TextSecondary)
-                        overspeed ->
-                            Text(stringResource(R.string.over_limit), fontSize = 13.sp, color = AlertRed, fontWeight = FontWeight.SemiBold)
-                        settings.speedAlert ->
-                            Text(stringResource(R.string.limit_short, settings.speedLimit), fontSize = 12.sp, color = TextSecondary)
-                    }
-                }
+        NoticeBanner(
+            notice = st.notices.firstOrNull(),
+            st = st,
+            act = act,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)
+        )
+    }
+}
+
+@Composable
+private fun InfoColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
+    val s = st.settings
+    val cards = s.cards.ifEmpty { listOf(CardType.CLOCK) }
+    val onlyClock = cards.all { it == CardType.CLOCK }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        cards.forEach { card ->
+            val m = if (card == CardType.CLOCK && !onlyClock) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().weight(1f)
+            when (card) {
+                CardType.CLOCK -> ClockCard(s, st.driving, m)
+                CardType.SPEED -> SpeedCard(
+                    speedMps = st.speedMps, gpsState = st.gpsState, settings = s, limit = st.limit,
+                    overspeed = st.overspeed, accent = st.accent, onRequestPermission = act.requestLocation, modifier = m
+                )
+                CardType.MUSIC -> MusicCard(
+                    nowPlaying = st.nowPlaying, hasAccess = st.hasMusicAccess, accent = st.accent,
+                    driving = st.driving, doubleTapToPause = s.swipeMusic,
+                    onRequestAccess = act.requestMusicAccess, onOpenApp = act.openMusicApp,
+                    onPlayPause = act.playPause, onNext = act.next, onPrevious = act.previous, modifier = m
+                )
+                CardType.WEATHER -> WeatherCard(
+                    weather = st.weather, dustInHours = if (s.dustWarning) st.dustInHours else null,
+                    hasLocation = st.hasLocation, use24h = s.use24h, accent = st.accent,
+                    onRequestLocation = act.requestLocation, modifier = m
+                )
+                CardType.PRAYER -> PrayerCard(
+                    prayer = st.prayer, use24h = s.use24h, accent = st.accent,
+                    nearbyButtons = s.nearbyButtons, onNearby = act.nearby, modifier = m
+                )
+                CardType.TRIP -> TripCard(st.trip, st.lastTrip, s, st.accent, act.newTrip, m)
+                CardType.CAR -> CarCard(st.obdStatus, st.obdData, s.obd, st.accent, act.readCodes, act.openCarSettings, m)
             }
         }
     }
 }
 
-// ── Music ─────────────────────────────────────────────────────────────────────
+@Composable
+private fun MainColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
+    val s = st.settings
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            when {
+                s.showWeather -> WeatherStrip(
+                    weather = st.weather,
+                    hasLocation = st.hasLocation,
+                    use24h = s.use24h,
+                    accent = st.accent,
+                    compact = st.driving || s.showPrayerChip,
+                    onRequestLocation = act.requestLocation,
+                    modifier = Modifier.weight(1f)
+                )
+                !s.showPrayerChip -> Text(
+                    text = stringResource(R.string.hint_tiles),
+                    color = TextSecondary,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (s.showPrayerChip) {
+                PrayerChip(
+                    st.prayer, s.use24h, st.accent,
+                    if (s.showWeather) Modifier.widthIn(max = 240.dp) else Modifier.weight(1f)
+                )
+            }
+            GlassIconButton(Icons.Rounded.Apps, stringResource(R.string.all_apps), act.openApps)
+            GlassIconButton(Icons.Rounded.Settings, stringResource(R.string.settings), act.openSettings)
+        }
+        // Driving mode shows fewer, bigger tiles
+        val shown = if (st.driving) st.tiles.take(minOf(6, st.tiles.size)) else st.tiles
+        TileGrid(st, act, shown, Modifier.fillMaxWidth().weight(1f))
+    }
+}
+
+// ── Notices (break, oil, dust, fog, prayer) ───────────────────────────────────
 
 @Composable
-private fun MusicCard(
-    nowPlaying: NowPlaying?,
-    hasAccess: Boolean,
-    accent: Color,
-    onRequestAccess: () -> Unit,
-    onOpenApp: (String) -> Unit,
-    onPlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(modifier = modifier.glass()) {
-        val art = nowPlaying?.art
-        if (art != null) {
-            Image(
-                bitmap = art.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.25f), Color.Black.copy(alpha = 0.85f)))
-                )
+private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modifier: Modifier) {
+    AnimatedVisibility(
+        visible = notice != null,
+        enter = fadeIn() + slideInVertically { it / 2 },
+        exit = fadeOut() + slideOutVertically { it / 2 },
+        modifier = modifier
+    ) {
+        val n = notice ?: return@AnimatedVisibility
+        val s = st.settings
+        val (icon, text) = when (n.kind) {
+            NoticeKind.BREAK -> Icons.Rounded.Coffee to stringResource(R.string.notice_break, s.breakAfterMin)
+            NoticeKind.OIL -> Icons.Rounded.OilBarrel to stringResource(R.string.notice_oil)
+            NoticeKind.DUST -> Icons.Rounded.Air to
+                (if (n.hours == 0) stringResource(R.string.dust_now) else stringResource(R.string.dust_in, n.hours))
+            NoticeKind.FOG -> Icons.Rounded.Air to
+                (if (n.hours == 0) stringResource(R.string.fog_now) else stringResource(R.string.fog_in, n.hours))
+            NoticeKind.PRAYER -> Icons.Rounded.Mosque to stringResource(
+                R.string.notice_prayer,
+                stringResource(prayerName(n.prayer ?: com.carhome.launcher.Prayer.DHUHR)),
+                formatTime(n.at, s.use24h, appLocale())
             )
         }
-
-        when {
-            !hasAccess -> Column(
-                modifier = Modifier.fillMaxSize().clickable(onClick = onRequestAccess).padding(24.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(Icons.Rounded.MusicNote, null, tint = accent, modifier = Modifier.size(36.dp))
-                Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.enable_music), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(Modifier.height(4.dp))
-                Text(stringResource(R.string.enable_music_hint), fontSize = 14.sp, color = TextSecondary)
-            }
-
-            else -> Column(
-                modifier = Modifier.fillMaxSize().padding(20.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                AnimatedContent(
-                    targetState = nowPlaying?.title.orEmpty() to nowPlaying?.artist.orEmpty(),
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
-                    label = "track"
-                ) { (title, artist) ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .let { m ->
-                                val pkg = nowPlaying?.appPackage
-                                if (!pkg.isNullOrEmpty()) m.clickable { onOpenApp(pkg) } else m
-                            }
-                    ) {
-                        Text(
-                            text = title.ifEmpty { stringResource(R.string.nothing_playing) },
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (artist.isNotEmpty()) {
-                            Text(artist, fontSize = 15.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(36.dp))
+                .background(Color(0xF0151C2E))
+                .padding(start = 22.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(icon, null, tint = if (n.kind == NoticeKind.PRAYER) st.accent else WarnAmber, modifier = Modifier.size(28.dp))
+            Text(text, fontSize = 17.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 2, modifier = Modifier.widthIn(max = 520.dp))
+            when (n.kind) {
+                NoticeKind.BREAK -> {
+                    SmallPill(Icons.Rounded.Coffee, stringResource(R.string.coffee), st.accent) { act.nearby(Nearby.COFFEE) }
+                    SmallPill(Icons.Rounded.LocalGasStation, stringResource(R.string.fuel), st.accent) { act.nearby(Nearby.FUEL) }
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    GlassIconButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious, size = 56.dp)
-                    GlassIconButton(
-                        icon = if (nowPlaying?.isPlaying == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = "Play/Pause",
-                        onClick = onPlayPause,
-                        size = 72.dp,
-                        tint = Color.White,
-                        filled = accent
-                    )
-                    GlassIconButton(Icons.Rounded.SkipNext, "Next", onNext, size = 56.dp)
+                NoticeKind.OIL -> SmallPill(Icons.Rounded.Check, stringResource(R.string.oil_done), st.accent, act.oilChanged)
+                NoticeKind.PRAYER -> if (s.nearbyButtons) {
+                    SmallPill(Icons.Rounded.Mosque, stringResource(R.string.nearest_mosque), st.accent) { act.nearby(Nearby.MOSQUE) }
                 }
+                else -> Unit
             }
+            GlassIconButton(
+                if (n.kind == NoticeKind.BREAK) Icons.Rounded.Snooze else Icons.Rounded.Close,
+                stringResource(R.string.dismiss),
+                { act.dismissNotice(n) },
+                size = 44.dp
+            )
         }
     }
 }
@@ -507,15 +337,7 @@ private fun gridShape(count: Int): Pair<Int, Int> = when (count) {
 }
 
 @Composable
-private fun TileGrid(
-    tiles: List<String>,
-    appsByPackage: Map<String, AppEntry>,
-    accent: Color,
-    onTileClick: (Int, String) -> Unit,
-    onTileChange: (Int) -> Unit,
-    onTileRemove: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun TileGrid(st: HomeState, act: HomeActions, tiles: List<String>, modifier: Modifier) {
     val shape = gridShape(tiles.size)
     val cols = shape.first
     val rows = shape.second
@@ -527,14 +349,14 @@ private fun TileGrid(
             ) {
                 for (c in 0 until cols) {
                     val index = r * cols + c
-                    val pkg = tiles.getOrNull(index).orEmpty()
+                    val value = tiles.getOrNull(index).orEmpty()
                     AppTile(
-                        app = appsByPackage[pkg],
-                        isEmpty = pkg.isEmpty(),
-                        accent = accent,
-                        onClick = { onTileClick(index, pkg) },
-                        onChange = { onTileChange(index) },
-                        onRemove = { onTileRemove(index) },
+                        value = value,
+                        st = st,
+                        onClick = { act.openTile(index, value) },
+                        onChange = { act.changeTile(index) },
+                        onRemove = { act.removeTile(index) },
+                        onToggleParked = { act.toggleParkedOnly(value) },
                         modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                 }
@@ -546,17 +368,21 @@ private fun TileGrid(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppTile(
-    app: AppEntry?,
-    isEmpty: Boolean,
-    accent: Color,
+    value: String,
+    st: HomeState,
     onClick: () -> Unit,
     onChange: () -> Unit,
     onRemove: () -> Unit,
+    onToggleParked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
     val scale = rememberPressScale(interaction)
+    val accent = st.accent
+    val labels = st.settings.showTileLabels
+    val iconSize = if (st.driving) 84.dp else 68.dp
+    val isApp = value.isNotEmpty() && value != TILE_SMART && !value.startsWith(TILE_PLACE)
     Box(
         modifier = modifier
             .scale(scale)
@@ -565,38 +391,50 @@ private fun AppTile(
                 interactionSource = interaction,
                 indication = null,
                 onClick = onClick,
-                onLongClick = { if (!isEmpty) menuOpen = true }
+                onLongClick = { if (value.isNotEmpty()) menuOpen = true }
             ),
         contentAlignment = Alignment.Center
     ) {
         when {
-            isEmpty -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            value.isEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier.size(56.dp).clip(CircleShape).background(accent.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Rounded.Add, null, tint = accent, modifier = Modifier.size(30.dp))
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(stringResource(R.string.add_app), color = TextSecondary, fontSize = 14.sp)
+                if (labels) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(stringResource(R.string.add_app), color = TextSecondary, fontSize = 14.sp)
+                }
             }
 
-            app == null -> Text("…", color = TextSecondary, fontSize = 20.sp) // still loading, or app removed
+            value == TILE_SMART -> {
+                val app = st.smartPick
+                if (app == null) {
+                    TileBody(Icons.Rounded.AutoAwesome, stringResource(R.string.smart_tile), accent, labels, iconSize)
+                } else {
+                    TileBody(app, labels, iconSize)
+                }
+                Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.TopEnd) {
+                    Icon(Icons.Rounded.AutoAwesome, stringResource(R.string.smart_tile), tint = accent, modifier = Modifier.size(18.dp))
+                }
+            }
 
-            else -> Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(10.dp)
-            ) {
-                Image(bitmap = app.icon, contentDescription = app.label, modifier = Modifier.size(68.dp))
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = app.label,
-                    color = TextPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            value.startsWith(TILE_PLACE) -> {
+                val p = st.placesById[value.removePrefix(TILE_PLACE)]
+                TileBody(Icons.Rounded.Place, p?.name ?: "…", accent, true, iconSize)
+            }
+
+            else -> {
+                val app = st.appsByPackage[value]
+                if (app == null) Text("…", color = TextSecondary, fontSize = 20.sp) // still loading, or app removed
+                else TileBody(app, labels, iconSize)
+                if (st.settings.parkedOnly && value in st.parkedOnly) {
+                    Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.TopEnd) {
+                        Icon(Icons.Rounded.Lock, stringResource(R.string.parked_only), tint = TextSecondary, modifier = Modifier.size(18.dp))
+                    }
+                }
             }
         }
 
@@ -611,6 +449,40 @@ private fun AppTile(
                 leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                 onClick = { menuOpen = false; onRemove() }
             )
+            if (isApp && st.settings.parkedOnly) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.parked_only)) },
+                    leadingIcon = { Icon(if (value in st.parkedOnly) Icons.Rounded.Check else Icons.Rounded.Lock, null) },
+                    onClick = { menuOpen = false; onToggleParked() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TileBody(app: AppEntry, labels: Boolean, iconSize: androidx.compose.ui.unit.Dp) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(10.dp)) {
+        Image(bitmap = app.icon, contentDescription = app.label, modifier = Modifier.size(iconSize))
+        if (labels) {
+            Spacer(Modifier.height(10.dp))
+            Text(app.label, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun TileBody(icon: ImageVector, label: String, accent: Color, labels: Boolean, iconSize: androidx.compose.ui.unit.Dp) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(10.dp)) {
+        Box(
+            modifier = Modifier.size(iconSize).clip(CircleShape).background(accent.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = accent, modifier = Modifier.size(iconSize * 0.55f))
+        }
+        if (labels) {
+            Spacer(Modifier.height(10.dp))
+            Text(label, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

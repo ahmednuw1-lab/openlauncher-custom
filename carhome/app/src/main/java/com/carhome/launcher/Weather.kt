@@ -6,6 +6,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 data class HourForecast(
@@ -19,7 +21,9 @@ data class WeatherInfo(
     val temperatureC: Double,
     val code: Int,
     val isDay: Boolean,
-    val nextHours: List<HourForecast> = emptyList()
+    val nextHours: List<HourForecast> = emptyList(),
+    /** Hours until visibility drops under 1 km within the next 12 h (0 = now), or null. */
+    val fogInHours: Int? = null
 )
 
 enum class WeatherKind(@StringRes val label: Int) {
@@ -46,37 +50,91 @@ fun weatherKind(code: Int): WeatherKind = when (code) {
     else -> WeatherKind.CLOUDY
 }
 
+private fun httpGet(url: String): String? {
+    val conn = URL(url).openConnection() as HttpURLConnection
+    return try {
+        conn.connectTimeout = 10_000
+        conn.readTimeout = 15_000
+        conn.setRequestProperty("User-Agent", "CarHome/1.2 (Android launcher)")
+        if (conn.responseCode != 200) null else conn.inputStream.bufferedReader().use { it.readText() }
+    } finally {
+        conn.disconnect()
+    }
+}
+
 /** Free, key-less weather from Open-Meteo. Returns null on any failure. */
 suspend fun fetchWeather(lat: Double, lon: Double): WeatherInfo? = withContext(Dispatchers.IO) {
     runCatching {
-        val url = URL(
+        val body = httpGet(
             String.format(
                 Locale.US,
                 "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f" +
-                    "&current_weather=true&hourly=temperature_2m,weather_code,is_day" +
+                    "&current_weather=true&hourly=temperature_2m,weather_code,is_day,visibility" +
                     "&forecast_days=2&timezone=auto",
                 lat, lon
             )
+        ) ?: return@runCatching null
+        val root = JSONObject(body)
+        val cw = root.getJSONObject("current_weather")
+        val now = cw.optString("time", "")
+        WeatherInfo(
+            temperatureC = cw.getDouble("temperature"),
+            code = cw.getInt("weathercode"),
+            isDay = cw.optInt("is_day", 1) == 1,
+            nextHours = parseNextHours(root, now),
+            fogInHours = firstHourBelow(root, now, "visibility", 1000.0)
         )
-        val conn = url.openConnection() as HttpURLConnection
-        try {
-            conn.connectTimeout = 10_000
-            conn.readTimeout = 10_000
-            if (conn.responseCode != 200) return@runCatching null
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
-            val root = JSONObject(body)
-            val cw = root.getJSONObject("current_weather")
-            WeatherInfo(
-                temperatureC = cw.getDouble("temperature"),
-                code = cw.getInt("weathercode"),
-                isDay = cw.optInt("is_day", 1) == 1,
-                nextHours = parseNextHours(root, cw.optString("time", ""))
-            )
-        } finally {
-            conn.disconnect()
-        }
     }.getOrNull()
 }
+
+/**
+ * Hours until dust in the air reaches a level that cuts visibility (≥ 150 µg/m³)
+ * within the next 12 hours, from Open-Meteo's free air-quality forecast. 0 = now.
+ */
+suspend fun fetchDustInHours(lat: Double, lon: Double): Int? = withContext(Dispatchers.IO) {
+    runCatching {
+        val body = httpGet(
+            String.format(
+                Locale.US,
+                "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%.4f&longitude=%.4f" +
+                    "&hourly=dust&forecast_days=2&timezone=auto",
+                lat, lon
+            )
+        ) ?: return@runCatching null
+        val root = JSONObject(body)
+        val hourly = root.getJSONObject("hourly")
+        val times = hourly.getJSONArray("time")
+        val dust = hourly.getJSONArray("dust")
+        val nowHour = SimpleDateFormat("yyyy-MM-dd'T'HH:00", Locale.US).format(Date())
+        var ahead = 0
+        for (i in 0 until times.length()) {
+            val t = times.getString(i)
+            if (t < nowHour) continue
+            if (ahead > 12) break
+            if (!dust.isNull(i) && dust.getDouble(i) >= 150.0) return@runCatching ahead
+            ahead++
+        }
+        null
+    }.getOrNull()
+}
+
+/** First hourly slot from the current hour on (within 12 h) where [key] < [limit]. */
+private fun firstHourBelow(root: JSONObject, nowTime: String, key: String, limit: Double): Int? =
+    runCatching {
+        val hourly = root.getJSONObject("hourly")
+        val times = hourly.getJSONArray("time")
+        val values = hourly.optJSONArray(key) ?: return@runCatching null
+        val nowHour = nowTime.take(13)   // "yyyy-MM-ddTHH"
+        var ahead = 0
+        for (i in 0 until times.length()) {
+            val t = times.getString(i).take(13)
+            if (t < nowHour) continue
+            if (ahead > 12) break
+            if (!values.isNull(i) && values.getDouble(i) < limit) return@runCatching ahead
+            ahead++
+        }
+        null
+    }.getOrNull()
 
 /**
  * The 5 hourly slots after the current time. With timezone=auto every time is a
