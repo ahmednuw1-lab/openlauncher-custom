@@ -165,9 +165,11 @@ drive 6
 shot 14-short-screen-speed
 park
 
-# 15–19: 1.2.10 screens, back on the normal screen in English
-adb shell wm size reset
-adb shell wm density reset
+# 15–19: 1.2.10 screens, back on the normal 1280x720 screen in English
+# (not "wm size reset": the emulator's own screen is much smaller, and the
+# taps below are for 1280x720)
+adb shell wm size 1280x720
+adb shell wm density 160
 adb shell cmd locale set-app-locales $PKG --locales en || true
 NOW=$(date +%s%3N)
 DAY=86400000
