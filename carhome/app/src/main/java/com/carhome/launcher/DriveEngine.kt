@@ -440,6 +440,13 @@ class DriveEngine(private val core: Core) {
 
         updateLimit(s, mps)
         updateAlert(s, if (_speedApprox.value) null else mps, now)
+        // Speed cameras: only with a real speed (not the internet estimate)
+        val camLoc = lastFix ?: _location.value
+        core.cameras.tick(
+            camLoc?.latitude, camLoc?.longitude,
+            camLoc?.takeIf { it.hasBearing() && (mps ?: 0f) > 3f }?.bearing,
+            if (_speedApprox.value) null else mps
+        )
         updateVolume(s, kmh, mps != null)
         if (now - lastTripSave > 30_000L) saveTrip()
     }

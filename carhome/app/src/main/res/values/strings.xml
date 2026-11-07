@@ -446,6 +446,15 @@
         <item quantity="one">%1$s: %2$d day late</item>
         <item quantity="other">%1$s: %2$d days late</item>
     </plurals>
+    <string name="cameras">Speed cameras</string>
+    <string name="cameras_on">Warn before speed cameras</string>
+    <string name="cameras_hint">About 500 m before a camera ahead, from OpenStreetMap. Not every camera is on the map, so always follow the road signs. Needs internet.</string>
+    <string name="cameras_sound">Beep when a camera comes up</string>
+    <string name="camera_ahead">Speed camera ahead · %1$s</string>
+    <string name="camera_ahead_limit">Speed camera ahead · %1$s · limit %2$d</string>
+    <string name="voice_camera">Speed camera ahead</string>
+    <string name="unit_m">m</string>
+    <string name="unit_yd">yd</string>
     <plurals name="voice_prayer_min">
         <item quantity="one">%1$s in %2$d minute</item>
         <item quantity="other">%1$s in %2$d minutes</item>

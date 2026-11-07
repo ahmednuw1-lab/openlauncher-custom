@@ -522,6 +522,14 @@ private fun SpeedPage(st: SettingsState, act: SettingsActions) {
             Hint(stringResource(R.string.road_limit_note))
         }
     }
+    Section(stringResource(R.string.cameras)) {
+        Toggle(stringResource(R.string.cameras_on), s.speedCameras, a, stringResource(R.string.cameras_hint)) { v ->
+            act.update { it.copy(speedCameras = v) }
+        }
+        if (s.speedCameras) {
+            Toggle(stringResource(R.string.cameras_sound), s.cameraSound, a) { v -> act.update { it.copy(cameraSound = v) } }
+        }
+    }
     Section(stringResource(R.string.bubble)) {
         Toggle(stringResource(R.string.bubble_on), s.bubble, a, stringResource(R.string.bubble_hint)) { v ->
             act.update { it.copy(bubble = v) }

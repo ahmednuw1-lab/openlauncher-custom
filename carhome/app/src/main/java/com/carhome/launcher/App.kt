@@ -54,6 +54,7 @@ class Core(val app: Application) {
     val engine = DriveEngine(this)
     val obd = ObdClient(this)
     val updater by lazy { Updater(this) }
+    val cameras by lazy { CameraWatch(this) }
 
     fun updateSettings(block: (LauncherSettings) -> LauncherSettings): Pair<LauncherSettings, LauncherSettings> {
         val old = _settings.value

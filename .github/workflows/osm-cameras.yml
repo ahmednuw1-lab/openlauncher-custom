@@ -1,0 +1,28 @@
+# One-off check: how many speed cameras OpenStreetMap has in a few Saudi areas.
+name: OSM speed camera count
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/osm-cameras.yml'
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count cameras
+        run: |
+          count() {
+            q="[out:json][timeout:25];node[\"highway\"=\"speed_camera\"]($2);out count;"
+            n=$(curl -s --max-time 40 -A "CarHome camera count (github.com/ahmednuw1-lab/openlauncher-custom)" \
+              --data-urlencode "data=$q" https://overpass-api.de/api/interpreter | grep -o '"nodes": *"[0-9]*"' | grep -o '[0-9]*')
+            echo "$1: ${n:-unknown}" | tee -a "$GITHUB_STEP_SUMMARY"
+            sleep 5
+          }
+          count "Al-Ahsa (Hofuf, Mubarraz)" "25.15,49.35,25.6,49.8"
+          count "Dammam - Khobar - Dhahran" "26.15,49.9,26.5,50.3"
+          count "Riyadh" "24.4,46.4,25.0,47.0"
+          count "Hofuf - Dammam highway corridor" "25.5,49.5,26.2,50.0"
+          count "All of Saudi Arabia" "16.0,34.5,32.2,55.7"

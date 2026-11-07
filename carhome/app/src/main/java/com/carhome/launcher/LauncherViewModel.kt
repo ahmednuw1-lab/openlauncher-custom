@@ -45,13 +45,15 @@ enum class PickFor { TILE, AUTO_APP }
 /** Which page is showing; with [pickFor] the app list is choosing an app. */
 data class Nav(val page: Page = Page.HOME, val pickFor: PickFor? = null, val pickTile: Int = -1)
 
-enum class NoticeKind { BREAK, OIL, DUST, FOG, PRAYER, UPDATE, REMINDER }
+enum class NoticeKind { CAMERA, BREAK, OIL, DUST, FOG, PRAYER, UPDATE, REMINDER }
 data class Notice(
     val kind: NoticeKind, val hours: Int = 0, val prayer: Prayer? = null, val at: Long = 0L,
     /** For UPDATE: the new version, and download progress (-1 when not downloading) */
     val version: String? = null, val progress: Int = -1,
     /** For REMINDER: which one, and how close it is */
-    val due: DueStatus? = null
+    val due: DueStatus? = null,
+    /** For CAMERA: the camera ahead */
+    val camera: CameraAhead? = null
 )
 
 enum class Nearby { MOSQUE, FUEL, COFFEE }
@@ -485,6 +487,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             NoticeKind.PRAYER -> dismissed.add("PRAYER${n.at}")
             NoticeKind.UPDATE -> core.prefs.dismissedUpdate = n.version.orEmpty()
             NoticeKind.REMINDER -> n.due?.let { snoozeReminder(it.reminder.id) }
+            NoticeKind.CAMERA -> core.cameras.hide()
         }
         updateNotices()
     }
@@ -493,6 +496,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         val s = settings.value
         val now = System.currentTimeMillis()
         val list = mutableListOf<Notice>()
+        // A speed camera ahead comes first
+        core.cameras.ahead.value?.let { list += Notice(NoticeKind.CAMERA, camera = it) }
         if (engine.breakDue.value) list += Notice(NoticeKind.BREAK)
 
         val next = _prayer.value?.next
@@ -777,6 +782,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch { _apps.collect { refreshSmartPick() } }
         viewModelScope.launch { core.updater.state.collect { updateNotices() } }
+        viewModelScope.launch { core.cameras.ahead.collect { updateNotices() } }
         checkWhatsNew()
     }
 }

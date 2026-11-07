@@ -458,6 +458,15 @@
         <item quantity="many">%1$s: متأخر %2$d يومًا</item>
         <item quantity="other">%1$s: متأخر %2$d يوم</item>
     </plurals>
+    <string name="cameras">كاميرات السرعة</string>
+    <string name="cameras_on">التنبيه قبل كاميرات السرعة</string>
+    <string name="cameras_hint">قبل الكاميرا بنحو 500 م، من خرائط OpenStreetMap. ليست كل الكاميرات على الخريطة، فاتبع اللوحات دائمًا. يحتاج إنترنت.</string>
+    <string name="cameras_sound">صافرة عند الاقتراب من كاميرا</string>
+    <string name="camera_ahead">كاميرا سرعة أمامك · %1$s</string>
+    <string name="camera_ahead_limit">كاميرا سرعة أمامك · %1$s · الحد %2$d</string>
+    <string name="voice_camera">كاميرا سرعة أمامك</string>
+    <string name="unit_m">م</string>
+    <string name="unit_yd">ياردة</string>
     <plurals name="voice_prayer_min">
         <item quantity="zero">%1$s الآن</item>
         <item quantity="one">%1$s بعد دقيقة</item>

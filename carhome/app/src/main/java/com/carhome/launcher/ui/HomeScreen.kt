@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.LocalGasStation
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mosque
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.OilBarrel
 import androidx.compose.material.icons.rounded.Place
@@ -92,6 +93,7 @@ import com.carhome.launcher.TripStats
 import com.carhome.launcher.WeatherInfo
 import com.carhome.launcher.prayerName
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** Everything the home screen shows. */
 data class HomeState(
@@ -308,6 +310,14 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
                 stringResource(prayerName(n.prayer ?: com.carhome.launcher.Prayer.DHUHR)),
                 formatTime(n.at, s.use24h, appLocale())
             )
+            NoticeKind.CAMERA -> n.camera!!.let { c ->
+                val dist = if (s.useKmh) "${(c.distanceM / 10).roundToInt() * 10} " + stringResource(R.string.unit_m)
+                else "${(c.distanceM * 1.09361 / 10).roundToInt() * 10} " + stringResource(R.string.unit_yd)
+                Icons.Rounded.PhotoCamera to (
+                    if (c.camera.maxKmh != null) stringResource(R.string.camera_ahead_limit, dist, c.camera.maxKmh)
+                    else stringResource(R.string.camera_ahead, dist)
+                )
+            }
             NoticeKind.REMINDER -> n.due!!.let { reminderIcon(it.reminder.type) to reminderDueText(it, s.useKmh) }
             NoticeKind.UPDATE -> Icons.Rounded.SystemUpdate to
                 (if (n.progress >= 0) stringResource(R.string.update_downloading, n.version.orEmpty(), n.progress)
@@ -321,7 +331,15 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(icon, null, tint = if (n.kind == NoticeKind.PRAYER || n.kind == NoticeKind.UPDATE) st.accent else WarnAmber, modifier = Modifier.size(28.dp))
+            Icon(
+                icon, null,
+                tint = when (n.kind) {
+                    NoticeKind.PRAYER, NoticeKind.UPDATE, NoticeKind.REMINDER -> st.accent
+                    NoticeKind.CAMERA -> AlertRed
+                    else -> WarnAmber
+                },
+                modifier = Modifier.size(28.dp)
+            )
             Text(text, fontSize = 17.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 2, modifier = Modifier.widthIn(max = 520.dp))
             when (n.kind) {
                 NoticeKind.BREAK -> {

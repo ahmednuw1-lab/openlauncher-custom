@@ -120,6 +120,8 @@ data class LauncherSettings(
     val voiceReminders: Boolean = true,
     val updateCheck: Boolean = true,          // ask GitHub every 6 h for a new CarHome
     val carReminders: Boolean = true,         // paperwork / maintenance banners (nothing until you add one)
+    val speedCameras: Boolean = false,        // warn before OpenStreetMap speed cameras
+    val cameraSound: Boolean = true,
 )
 
 val DEFAULT_CARDS = listOf(CardType.CLOCK, CardType.SPEED, CardType.MUSIC)
@@ -495,6 +497,8 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         approxSpeed = o.optBoolean("approxSpeed", d.approxSpeed),
         updateCheck = o.optBoolean("updateCheck", d.updateCheck),
         carReminders = o.optBoolean("carReminders", d.carReminders),
+        speedCameras = o.optBoolean("speedCameras", d.speedCameras),
+        cameraSound = o.optBoolean("cameraSound", d.cameraSound),
         speedAlert = o.optBoolean("speedAlert", d.speedAlert),
         speedLimit = o.optInt("speedLimit", d.speedLimit).coerceIn(SPEED_LIMIT_MIN, SPEED_LIMIT_MAX),
         alertMode = o.enumOr("alertMode", d.alertMode),
@@ -575,6 +579,8 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("approxSpeed", s.approxSpeed)
     put("updateCheck", s.updateCheck)
     put("carReminders", s.carReminders)
+    put("speedCameras", s.speedCameras)
+    put("cameraSound", s.cameraSound)
     put("speedAlert", s.speedAlert)
     put("speedLimit", s.speedLimit)
     put("alertMode", s.alertMode.name)
