@@ -27,11 +27,13 @@ data class UpdateState(
     /** Version on GitHub, when one was found */
     val version: String? = null,
     /** Download progress 0–100 */
-    val progress: Int = 0
+    val progress: Int = 0,
+    /** The release's "What's new" notes (both languages; see [WhatsNew]) */
+    val notes: String? = null
 )
 
 /** A CarHome release on GitHub. */
-data class UpdateRelease(val versionName: String?, val versionCode: Int?, val apkUrl: String, val apkSize: Long) {
+data class UpdateRelease(val versionName: String?, val versionCode: Int?, val apkUrl: String, val apkSize: Long, val notes: String? = null) {
     companion object {
         /** Reads GitHub's "latest release" answer; null when it has no usable carhome.apk. */
         fun fromJson(o: JSONObject): UpdateRelease? {
@@ -45,7 +47,8 @@ data class UpdateRelease(val versionName: String?, val versionCode: Int?, val ap
                     versionName = UpdateCheck.versionNameFrom(o.optString("name")),
                     versionCode = UpdateCheck.versionCodeFrom(o.optString("body")),
                     apkUrl = url,
-                    apkSize = a.optLong("size", -1L)
+                    apkSize = a.optLong("size", -1L),
+                    notes = o.optString("body").ifBlank { null }
                 )
             }
             return null
@@ -104,7 +107,7 @@ class Updater(private val core: Core) {
             _state.value = when {
                 r.isFailure -> UpdateState(UpdateStage.FAILED)
                 rel != null && UpdateCheck.isNewer(rel.versionCode, rel.versionName, localCode(), localName()) ->
-                    UpdateState(UpdateStage.AVAILABLE, version = rel.versionName)
+                    UpdateState(UpdateStage.AVAILABLE, version = rel.versionName, notes = rel.notes)
                 else -> UpdateState(UpdateStage.LATEST)
             }
         }
@@ -126,12 +129,12 @@ class Updater(private val core: Core) {
             return
         }
         job = core.scope.launch {
-            _state.value = UpdateState(UpdateStage.DOWNLOADING, rel.versionName, 0)
+            _state.value = UpdateState(UpdateStage.DOWNLOADING, rel.versionName, 0, rel.notes)
             val ok = withContext(Dispatchers.IO) { runCatching { download(rel) }.getOrDefault(false) }
-            if (!ok) { _state.value = UpdateState(UpdateStage.FAILED, rel.versionName); return@launch }
-            _state.value = UpdateState(UpdateStage.INSTALLING, rel.versionName, 100)
+            if (!ok) { _state.value = UpdateState(UpdateStage.FAILED, rel.versionName, notes = rel.notes); return@launch }
+            _state.value = UpdateState(UpdateStage.INSTALLING, rel.versionName, 100, rel.notes)
             val started = withContext(Dispatchers.IO) { runCatching { startInstall(apkFor(rel)) }.isSuccess }
-            if (!started) _state.value = UpdateState(UpdateStage.FAILED, rel.versionName)
+            if (!started) _state.value = UpdateState(UpdateStage.FAILED, rel.versionName, notes = rel.notes)
         }
     }
 

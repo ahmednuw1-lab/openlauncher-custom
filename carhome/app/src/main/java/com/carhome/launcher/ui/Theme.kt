@@ -150,6 +150,8 @@ fun LivingSky(sun: Pair<Long, Long>?, weatherCode: Int?, dust: Boolean) {
                     if (ms - lastMinute > 60_000L) { now = ms; lastMinute = ms }
                 }
             }
+            // Sleep between frames instead of waking on every screen refresh
+            delay(45L)
         }
     }
     val rng = remember { Random(7) }

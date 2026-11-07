@@ -57,6 +57,7 @@ import com.carhome.launcher.ui.SettingsActions
 import com.carhome.launcher.ui.SettingsScreen
 import com.carhome.launcher.ui.SettingsState
 import com.carhome.launcher.ui.WelcomeOverlay
+import com.carhome.launcher.ui.WhatsNewOverlay
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -73,13 +74,10 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         val lang = runCatching { CarHomeApp.core(newBase).settings.value.language }.getOrDefault(AppLanguage.SYSTEM)
         appliedLanguage = lang
-        val tag = lang.tag
-        if (tag == null) {
-            newBase.resources.configuration.locales[0]?.let { Locale.setDefault(it) }
-            super.attachBaseContext(newBase)
-            return
-        }
-        val loc = Locale.forLanguageTag(tag)
+        // The chosen (or system) language, always with Western digits (123)
+        val base = lang.tag?.let { Locale.forLanguageTag(it) }
+            ?: newBase.resources.configuration.locales[0] ?: Locale.getDefault()
+        val loc = Digits.latin(base)
         Locale.setDefault(loc)
         val cfg = Configuration(newBase.resources.configuration)
         cfg.setLocale(loc)
@@ -144,6 +142,8 @@ class MainActivity : ComponentActivity() {
             val night by vm.night.collectAsStateWithLifecycle()
             val parked by vm.parkedScreen.collectAsStateWithLifecycle()
             val welcome by vm.welcome.collectAsStateWithLifecycle()
+            val whatsNew by vm.whatsNew.collectAsStateWithLifecycle()
+            val drivingNow by vm.engine.moving.collectAsStateWithLifecycle()
             val driving by vm.drivingMode.collectAsStateWithLifecycle()
             val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
             val voiceStatus by vm.voiceStatus.collectAsStateWithLifecycle()
@@ -256,6 +256,8 @@ class MainActivity : ComponentActivity() {
 
                         ParkedOverlay(parked, s, weather, prayer, accent) { vm.userTouched() }
                         WelcomeOverlay(welcome, s, weather, prayer, lastTrip, accent) { vm.dismissWelcome() }
+                        // Not while driving: it waits until the car stops
+                        WhatsNewOverlay(if (drivingNow) null else whatsNew, vm.versionName, accent) { vm.closeWhatsNew() }
                         NightDim(night, s.nightDim)
 
                         // Pulsing red frame around the whole screen while over the limit. Drawn
@@ -333,12 +335,13 @@ class MainActivity : ComponentActivity() {
             oilChanged = { vm.oilChanged(); Toast.makeText(this, R.string.oil_reset_done, Toast.LENGTH_SHORT).show() },
             adjustOil = { vm.adjustOil(it) },
             pickAutoApp = { vm.pickAutoApp() },
-            pickPhoto = { runCatching { photoPicker.launch("image/*") } },
+            pickPhoto = { runCatching { photoPicker.launch("image/*") }.onFailure { Toast.makeText(this, R.string.no_file_picker, Toast.LENGTH_LONG).show() } },
             addPlace = { n, cur, addr -> addPlace(n, cur, addr) },
             removePlace = { vm.removePlace(it) },
             toggleParkedOnly = { vm.toggleParkedOnly(it) },
             checkUpdate = { vm.checkForUpdate() },
-            installUpdate = { vm.installUpdate() }
+            installUpdate = { vm.installUpdate() },
+            showWhatsNew = { vm.showWhatsNew(); vm.goHome() }
         )
     }
 

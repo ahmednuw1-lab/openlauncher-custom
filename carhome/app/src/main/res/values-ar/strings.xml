@@ -18,7 +18,7 @@
     <string name="weather_loading">جارٍ جلب الطقس…</string>
     <string name="tiles">خانات الشاشة الرئيسية</string>
     <string name="accent">اللون المميز</string>
-    <string name="clock_24h">ساعة ٢٤ ساعة</string>
+    <string name="clock_24h">نظام 24 ساعة</string>
     <string name="show_weather">عرض الطقس</string>
     <string name="set_default">اجعل CarHome الشاشة الرئيسية</string>
     <string name="music_access">إذن التحكم بالموسيقى</string>
@@ -44,7 +44,7 @@
     <string name="alert_type">نوع التنبيه</string>
     <string name="alert_screen">على الشاشة فقط</string>
     <string name="alert_beep_once">الشاشة + صافرة مرة واحدة</string>
-    <string name="alert_beep_repeat">الشاشة + صافرة كل ١٠ ثوانٍ</string>
+    <string name="alert_beep_repeat">الشاشة + صافرة كل 10 ثوانٍ</string>
     <string name="grace_margin">هامش التجاوز</string>
     <string name="test_alert">تجربة التنبيه</string>
     <string name="over_limit">تجاوزت الحد</string>
@@ -389,6 +389,11 @@
     <string name="update_installing">جارٍ فتح المثبِّت…</string>
     <string name="update_allow">اسمح لـ CarHome بتثبيت التطبيقات ثم ارجع</string>
     <string name="update_failed">حدث خطأ. تأكد من الإنترنت وحاول مرة أخرى.</string>
+    <string name="smart_tile_learning">الخانة الذكية ما زالت تتعلم التطبيقات التي تستخدمها، وستمتلئ بعد بضعة أيام.</string>
+    <string name="no_file_picker">لا يوجد في الجهاز أداة لاختيار الملفات.</string>
+    <string name="ok">حسنًا</string>
+    <string name="whats_new_title">الجديد في CarHome %1$s</string>
+    <string name="whats_new_show">ما الجديد</string>
     <plurals name="voice_prayer_min">
         <item quantity="zero">%1$s الآن</item>
         <item quantity="one">%1$s بعد دقيقة</item>

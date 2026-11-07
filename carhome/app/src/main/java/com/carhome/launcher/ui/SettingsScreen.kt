@@ -96,6 +96,7 @@ import com.carhome.launcher.PrayerInfo
 import com.carhome.launcher.PrayerMethod
 import com.carhome.launcher.R
 import com.carhome.launcher.UpdateStage
+import com.carhome.launcher.WhatsNew
 import com.carhome.launcher.UpdateState
 import com.carhome.launcher.REMINDER_MINUTES
 import com.carhome.launcher.SPEED_LIMIT_MAX
@@ -112,6 +113,7 @@ import com.carhome.launcher.VolumeBoost
 import com.carhome.launcher.prayerName
 import java.util.Locale
 import kotlin.math.roundToInt
+import androidx.compose.ui.text.input.TextFieldValue
 
 data class SettingsState(
     val settings: LauncherSettings,
@@ -162,7 +164,8 @@ class SettingsActions(
     val removePlace: (String) -> Unit,
     val toggleParkedOnly: (String) -> Unit,
     val checkUpdate: () -> Unit = {},
-    val installUpdate: () -> Unit = {}
+    val installUpdate: () -> Unit = {},
+    val showWhatsNew: () -> Unit = {}
 )
 
 @Composable
@@ -740,9 +743,15 @@ private fun StartupPage(st: SettingsState, act: SettingsActions) {
     Section(stringResource(R.string.welcome)) {
         Toggle(stringResource(R.string.welcome_on), s.welcome, a, stringResource(R.string.welcome_hint)) { v -> act.update { it.copy(welcome = v) } }
         if (s.welcome) {
+            // Typed text lives here (with the keyboard's composing state), so an Arabic
+            // keyboard can't lose letters; the setting is saved as you type
+            var name by remember { mutableStateOf(TextFieldValue(s.welcomeName)) }
             OutlinedTextField(
-                value = s.welcomeName,
-                onValueChange = { v -> act.update { it.copy(welcomeName = v.take(30)) } },
+                value = name,
+                onValueChange = { v ->
+                    name = if (v.text.length > 30) v.copy(text = v.text.take(30)) else v
+                    if (name.text != s.welcomeName) act.update { it.copy(welcomeName = name.text) }
+                },
                 singleLine = true,
                 label = { Text(stringResource(R.string.welcome_name)) },
                 modifier = Modifier.fillMaxWidth()
@@ -967,6 +976,12 @@ private fun PermissionsPage(st: SettingsState, act: SettingsActions) {
                 fontWeight = if (u.stage == UpdateStage.AVAILABLE) FontWeight.Medium else FontWeight.Normal
             )
         }
+        // What the new version brings, before you install it
+        if (u.stage == UpdateStage.AVAILABLE || u.stage == UpdateStage.NEED_PERMISSION) {
+            val lang = appLocale().language
+            val items = remember(u.notes, lang) { WhatsNew.parse(u.notes, lang) }
+            items.forEach { Text("•  $it", fontSize = 15.sp, color = TextSecondary) }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val busy = u.stage == UpdateStage.CHECKING || u.stage == UpdateStage.DOWNLOADING || u.stage == UpdateStage.INSTALLING
             if (u.version != null && (u.stage == UpdateStage.AVAILABLE || u.stage == UpdateStage.NEED_PERMISSION ||
@@ -975,6 +990,7 @@ private fun PermissionsPage(st: SettingsState, act: SettingsActions) {
                 ActionButton(stringResource(R.string.update_now), a, filled = true, onClick = act.installUpdate)
             }
             if (!busy) ActionButton(stringResource(R.string.update_check), a, onClick = act.checkUpdate)
+            ActionButton(stringResource(R.string.whats_new_show), a, onClick = act.showWhatsNew)
         }
     }
     Section(stringResource(R.string.about)) {

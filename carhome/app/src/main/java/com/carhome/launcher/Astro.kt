@@ -173,7 +173,7 @@ object Astro {
     fun hijriDate(now: Long, locale: Locale): String? = runCatching {
         val lang = if (locale.language == "ar") "ar" else "en"
         val fmt = android.icu.text.SimpleDateFormat(
-            "d MMMM y", android.icu.util.ULocale("$lang@calendar=islamic-umalqura")
+            "d MMMM y", android.icu.util.ULocale("$lang@calendar=islamic-umalqura;numbers=latn")
         )
         fmt.format(Date(now)) + if (lang == "ar") " هـ" else " AH"
     }.getOrNull()

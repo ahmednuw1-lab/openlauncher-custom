@@ -252,7 +252,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun openTile(index: Int, value: String) {
         when {
             value.isEmpty() -> pickForTile(index)
-            value == TILE_SMART -> _smartPick.value?.let { launchApp(it) }
+            value == TILE_SMART -> _smartPick.value?.let { launchApp(it) } ?: toast(R.string.smart_tile_learning)
             value.startsWith(TILE_PLACE) -> _places.value.firstOrNull { it.id == value.removePrefix(TILE_PLACE) }?.let { navigateTo(it) }
             else -> launchApp(value)
         }
@@ -539,6 +539,37 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (list != _notices.value) _notices.value = list
     }
 
+    // ── What's new ────────────────────────────────────────────────────────────
+    private val _whatsNew = MutableStateFlow<List<String>?>(null)
+    /** The list to show in the "What's new" card, or null when it's closed. */
+    val whatsNew: StateFlow<List<String>?> = _whatsNew.asStateFlow()
+
+    private val pkgInfo get() = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0) }.getOrNull()
+    val versionName: String get() = pkgInfo?.versionName ?: ""
+    private val versionCode: Int get() = pkgInfo?.let {
+        if (android.os.Build.VERSION.SDK_INT >= 28) it.longVersionCode.toInt() else @Suppress("DEPRECATION") it.versionCode
+    } ?: 0
+
+    private fun whatsNewItems(): List<String> = WhatsNew.parse(
+        runCatching { ctx.assets.open(WhatsNew.ASSET).bufferedReader().use { it.readText() } }.getOrNull(),
+        core.appLocale().language
+    )
+
+    /** Once after CarHome was updated (not after a fresh install). */
+    private fun checkWhatsNew() {
+        val cur = versionCode
+        val last = prefs.lastVersionCode
+        val updated = if (last == 0) pkgInfo?.let { it.lastUpdateTime > it.firstInstallTime + 1_000L } == true else last < cur
+        if (updated) _whatsNew.value = whatsNewItems().ifEmpty { null } else prefs.lastVersionCode = cur
+    }
+
+    fun showWhatsNew() { _whatsNew.value = whatsNewItems().ifEmpty { null } }
+
+    fun closeWhatsNew() {
+        prefs.lastVersionCode = versionCode
+        _whatsNew.value = null
+    }
+
     fun installUpdate() = core.updater.install()
     fun checkForUpdate() = core.updater.check()
 
@@ -712,6 +743,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch { _apps.collect { refreshSmartPick() } }
         viewModelScope.launch { core.updater.state.collect { updateNotices() } }
+        checkWhatsNew()
     }
 }
 

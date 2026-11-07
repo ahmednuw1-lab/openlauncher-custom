@@ -106,6 +106,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.draw.drawBehind
 
 @Composable
 fun appLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
@@ -399,15 +400,17 @@ fun SpeedCard(
             GpsState.NO_HARDWARE -> CardMessage(Icons.Rounded.Speed, stringResource(R.string.no_gps_hw), TextSecondary)
             else -> {
                 val value = speedMps?.takeIf { it.isFinite() }?.let { speedInUnit(it, settings.useKmh) }
-                val shown by animateFloatAsState(value ?: 0f, tween(700), label = "speed")
+                // The number shows the speed as it is (one update a second); only the gauge
+                // glides, and it's read while drawing, so the card isn't rebuilt every frame
+                val shownState = animateFloatAsState(value ?: 0f, tween(400), label = "speed")
                 val maxScale = if (settings.useKmh) 200f else 130f
                 val arcColor = if (overspeed) AlertRed else accent
                 val unit = stringResource(if (settings.useKmh) R.string.kmh else R.string.mph)
                 val gauge = settings.speedStyle == SpeedStyle.GAUGE && !compact
                 val number = when {
                     value == null -> "—"
-                    approx -> "~" + shown.roundToInt()
-                    else -> shown.roundToInt().toString()
+                    approx -> "~" + value.roundToInt()
+                    else -> value.roundToInt().toString()
                 }
                 val numberColor = (if (overspeed) AlertRed else TextPrimary).copy(alpha = if (stale) 0.45f else 1f)
                 val unitText = when {
@@ -444,15 +447,15 @@ fun SpeedCard(
                     }
                     // A thin bar along the bottom keeps the "gauge" feel
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.08f))) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth((shown / maxScale).coerceIn(0f, 1f))
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(arcColor)
-                            )
-                        }
+                        Box(
+                            Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .drawBehind {
+                                    val w = size.width * (shownState.value / maxScale).coerceIn(0f, 1f)
+                                    val x = if (layoutDirection == LayoutDirection.Rtl) size.width - w else 0f
+                                    drawRect(arcColor, topLeft = Offset(x, 0f), size = Size(w, size.height))
+                                }
+                        )
                     }
                     return@BoxWithConstraints
                 }
@@ -468,7 +471,7 @@ fun SpeedCard(
                             useCenter = false, topLeft = topLeft, size = arcSize,
                             style = Stroke(width = stroke, cap = StrokeCap.Round)
                         )
-                        val frac = (shown / maxScale).coerceIn(0f, 1f)
+                        val frac = (shownState.value / maxScale).coerceIn(0f, 1f)
                         if (frac > 0f) {
                             drawArc(
                                 color = arcColor, startAngle = 135f, sweepAngle = 270f * frac,

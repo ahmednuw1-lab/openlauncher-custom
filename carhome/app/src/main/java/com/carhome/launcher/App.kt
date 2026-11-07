@@ -70,10 +70,12 @@ class Core(val app: Application) {
     }
 
     /** The language CarHome shows: the user's choice, or the box's. */
+    /** The app's language, always with Western digits (123). */
     fun appLocale(): Locale {
         val tag = _settings.value.language.tag
-        if (tag != null) return Locale.forLanguageTag(tag)
-        return app.resources.configuration.locales[0] ?: Locale.getDefault()
+        val base = if (tag != null) Locale.forLanguageTag(tag)
+        else app.resources.configuration.locales[0] ?: Locale.getDefault()
+        return Digits.latin(base)
     }
 
     /** Context whose strings follow the chosen language (for voice and notifications). */
@@ -81,10 +83,10 @@ class Core(val app: Application) {
     private var localizedCtx: Context? = null
 
     fun localized(): Context {
-        val tag = _settings.value.language.tag ?: return app
+        val tag = _settings.value.language.tag ?: "system"
         localizedCtx?.let { if (localizedTag == tag) return it }
         val cfg = Configuration(app.resources.configuration)
-        val loc = Locale.forLanguageTag(tag)
+        val loc = appLocale()
         cfg.setLocale(loc)
         cfg.setLayoutDirection(loc)
         return app.createConfigurationContext(cfg).also { localizedCtx = it; localizedTag = tag }

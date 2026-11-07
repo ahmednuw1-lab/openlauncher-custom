@@ -265,6 +265,11 @@ class Prefs(context: Context) {
         get() = sp.getString("odometer_km", null)?.toDoubleOrNull()?.takeIf { it.isFinite() } ?: 0.0
         set(v) { if (v.isFinite()) sp.edit().putString("odometer_km", v.toString()).apply() }
     /** Odometer reading at the last oil change. */
+    /** The version that last showed (or skipped) "What's new"; 0 before 1.2.10. */
+    var lastVersionCode: Int
+        get() = sp.getInt("last_version_code", 0)
+        set(v) = sp.edit().putInt("last_version_code", v).apply()
+
     /** When CarHome last asked GitHub for a new version. */
     var updateCheckedAt: Long
         get() = sp.getLong("update_checked_at", 0L)

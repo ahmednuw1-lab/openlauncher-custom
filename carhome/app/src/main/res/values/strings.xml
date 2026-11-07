@@ -389,6 +389,11 @@
     <string name="update_installing">Opening the installer…</string>
     <string name="update_allow">Allow CarHome to install apps, then come back</string>
     <string name="update_failed">Something went wrong. Check the internet and try again.</string>
+    <string name="smart_tile_learning">The smart tile is still learning which apps you use. It fills in after a few days.</string>
+    <string name="no_file_picker">This box has no file picker.</string>
+    <string name="ok">OK</string>
+    <string name="whats_new_title">What\'s new in CarHome %1$s</string>
+    <string name="whats_new_show">What\'s new</string>
     <plurals name="voice_prayer_min">
         <item quantity="one">%1$s in %2$d minute</item>
         <item quantity="other">%1$s in %2$d minutes</item>
