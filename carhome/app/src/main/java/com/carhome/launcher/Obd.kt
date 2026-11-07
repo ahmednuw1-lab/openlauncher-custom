@@ -49,6 +49,7 @@ class ObdClient(private val core: Core) {
     val data: StateFlow<ObdData> = _data.asStateFlow()
 
     private var job: Job? = null
+    private var jobAddress = ""
     @Volatile private var socket: BluetoothSocket? = null
     @Volatile private var readCodesRequested = false
 
@@ -76,7 +77,10 @@ class ObdClient(private val core: Core) {
         if (adapter() == null) { stop(); _status.value = ObdStatus.NO_BLUETOOTH; return }
         if (!hasPermission()) { stop(); _status.value = ObdStatus.NO_PERMISSION; return }
         if (s.obdAddress.isEmpty()) { stop(); _status.value = ObdStatus.CHOOSE_ADAPTER; return }
-        if (job?.isActive == true) return
+        // Already talking to this adapter? A different one chosen restarts the connection
+        if (job?.isActive == true && jobAddress == s.obdAddress) return
+        stop()
+        jobAddress = s.obdAddress
         job = core.scope.launch(Dispatchers.IO) { runLoop(s.obdAddress) }
     }
 
@@ -117,6 +121,8 @@ class ObdClient(private val core: Core) {
             }.isSuccess
             runCatching { socket?.close() }
             socket = null
+            // Turned off or switched adapter meanwhile: don't overwrite the new status
+            if (!kotlinx.coroutines.currentCoroutineContext().isActive) return
             if (!ok) _status.value = ObdStatus.FAILED
             delay(10_000L)   // retry: the adapter may only power up with the ignition
         }
@@ -128,13 +134,21 @@ class ObdClient(private val core: Core) {
             output.write((c + "\r").toByteArray())
             output.flush()
             val sb = StringBuilder()
-            val started = System.currentTimeMillis()
-            while (System.currentTimeMillis() - started < 4_000L) {
-                val b = input.read()
-                if (b < 0) break
-                val ch = b.toChar()
-                if (ch == '>') break
-                sb.append(ch)
+            // Boot clock (a time change can't stretch it), and only read what has
+            // arrived, so a silent adapter can't block forever
+            val started = android.os.SystemClock.elapsedRealtime()
+            while (true) {
+                if (input.available() > 0) {
+                    val b = input.read()
+                    if (b < 0) throw java.io.IOException("adapter closed")
+                    val ch = b.toChar()
+                    if (ch == '>') break
+                    sb.append(ch)
+                } else {
+                    // No '>' prompt in time: replies would get out of step, so reconnect
+                    if (android.os.SystemClock.elapsedRealtime() - started > 10_000L) throw java.io.IOException("no reply to $c")
+                    Thread.sleep(20)
+                }
             }
             return sb.toString().replace("SEARCHING...", "").trim()
         }
@@ -171,7 +185,7 @@ class ObdClient(private val core: Core) {
                     k += 4
                     if (a == 0 && b == 0) continue
                     val letter = "PCBU"[(a shr 6) and 3]
-                    out += String.format("%c%d%X%02X", letter, (a shr 4) and 3, a and 0xF, b)
+                    out += String.format(java.util.Locale.US, "%c%d%X%02X", letter, (a shr 4) and 3, a and 0xF, b)
                 }
             }
             return out.distinct()

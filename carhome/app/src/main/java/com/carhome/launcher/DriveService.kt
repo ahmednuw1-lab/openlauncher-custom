@@ -54,7 +54,9 @@ class DriveService : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    // Not sticky: a restart in the background isn't allowed to track location on
+    // newer Android, so the home screen starts it again whenever it's shown
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
 
     override fun onDestroy() {
         loop?.cancel()

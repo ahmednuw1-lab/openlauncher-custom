@@ -121,14 +121,14 @@
     <string name="driving_mode">وضع القيادة</string>
     <string name="driving_mode_hint">أثناء الحركة: أزرار أكبر وخانات أقل وبدون بحث. يعود كل شيء عند التوقف.</string>
     <string name="driving_mode_on">تبسيط الشاشة أثناء القيادة</string>
-    <string name="dust_in">غبار متوقع خلال %1$d ساعة</string>
+    <string name="dust_in">غبار متوقع خلال %1$d س</string>
     <string name="dust_now">يوجد غبار الآن. قد بحذر</string>
     <string name="dust_warning">تحذير الغبار والضباب</string>
     <string name="dust_warning_hint">ينبّهك عند توقع غبار أو ضعف رؤية خلال 12 ساعة القادمة.</string>
     <string name="dust_warning_on">نبّهني من الغبار والضباب</string>
     <string name="engine_temp">حرارة المحرك</string>
     <string name="extra_large">كبير جداً</string>
-    <string name="fog_in">ضعف رؤية متوقع خلال %1$d ساعة</string>
+    <string name="fog_in">ضعف رؤية متوقع خلال %1$d س</string>
     <string name="fog_now">الرؤية ضعيفة الآن. قد بحذر</string>
     <string name="fuel">وقود</string>
     <string name="fuel_consumption">لتر لكل 100 كم</string>
@@ -185,7 +185,7 @@
     <string name="night_system_hint">يخفض سطوع شاشة الجهاز كله وليس CarHome فقط. يحتاج إذناً إضافياً.</string>
     <string name="night_to">إلى</string>
     <string name="no_maps">لا يوجد تطبيق خرائط</string>
-    <string name="no_road_limit">لا يوجد حد لهذا الطريق</string>
+    <string name="no_road_limit">لا يوجد حد سرعة لهذا الطريق في الخريطة</string>
     <string name="none">لا شيء</string>
     <string name="normal">عادي</string>
     <string name="notice_break">وقت الاستراحة: تقود منذ %1$d دقيقة</string>
@@ -310,7 +310,7 @@
     <string name="trip_started">بدأت رحلة جديدة</string>
     <string name="unit_kmh">السرعة بالكيلومتر</string>
     <string name="unit_kmh_hint">عند الإيقاف تظهر بالميل</string>
-    <string name="version_line">CarHome 1.2.6</string>
+    <string name="version_line">CarHome 1.2.7</string>
     <string name="voice">التنبيهات الصوتية</string>
     <string name="voice_break">حان وقت الاستراحة</string>
     <string name="voice_dust">يُتوقع غبار. قد بحذر</string>
@@ -320,7 +320,6 @@
     <string name="voice_oil">حان موعد تغيير الزيت</string>
     <string name="voice_on">انطق تنبيهاتي</string>
     <string name="voice_over_limit">خفف السرعة. الحد %1$d</string>
-    <string name="voice_prayer">%1$s بعد %2$d دقائق</string>
     <string name="voice_prayer_toggle">تذكيرات الصلاة</string>
     <string name="voice_ready">الصوت جاهز</string>
     <string name="voice_reminders">الاستراحة والزيت والغبار</string>
@@ -377,4 +376,13 @@
     <string name="channel_nav">تنبيه ملاحة</string>
     <string name="channel_media">وسائط</string>
     <string name="alert_channel_hint">إذا ما سمعت صوت تجربة التنبيه في سيارتك، غيّر هذا الخيار وجرّب مرة ثانية. وتأكد من صوت السيارة.</string>
+    <string name="tap_again_new_trip">اضغط مرة ثانية لبدء رحلة جديدة</string>
+    <plurals name="voice_prayer_min">
+        <item quantity="zero">%1$s الآن</item>
+        <item quantity="one">%1$s بعد دقيقة</item>
+        <item quantity="two">%1$s بعد دقيقتين</item>
+        <item quantity="few">%1$s بعد %2$d دقائق</item>
+        <item quantity="many">%1$s بعد %2$d دقيقة</item>
+        <item quantity="other">%1$s بعد %2$d دقيقة</item>
+    </plurals>
 </resources>

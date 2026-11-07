@@ -213,9 +213,7 @@ fun LivingSky(sun: Pair<Long, Long>?, weatherCode: Int?, dust: Boolean) {
                 val y = (d.y * h + time * 650f * d.speed) % h
                 drawLine(streak, Offset(x, y), Offset(x - 5f, y + 20f), strokeWidth = 1.6f)
             }
-            if (kind == WeatherKind.STORM && ((time * 1000).toInt() % 9_000) < 110) {
-                drawRect(Color.White.copy(alpha = 0.12f))
-            }
+            // No lightning flash: a screen flash is a distraction while driving (worse at night)
         }
         if (dust) drawRect(Color(0xFFC2A27A).copy(alpha = 0.14f))
         else if (kind == WeatherKind.FOG) drawRect(Color(0xFF9AA4B5).copy(alpha = 0.10f))

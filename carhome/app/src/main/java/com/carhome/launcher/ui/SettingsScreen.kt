@@ -665,8 +665,9 @@ private fun TripPage(st: SettingsState, act: SettingsActions) {
             )
             Stepper(
                 stringResource(R.string.fuel_price), String.format(Locale.US, "%.2f", s.fuelPrice),
-                onMinus = { act.update { it.copy(fuelPrice = ((it.fuelPrice - 0.05f) * 100).roundToInt() / 100f) } },
-                onPlus = { act.update { it.copy(fuelPrice = ((it.fuelPrice + 0.05f) * 100).roundToInt() / 100f) } }
+                // Same 0.10–20 range the saved value is kept in, so it never goes negative
+                onMinus = { act.update { it.copy(fuelPrice = (((it.fuelPrice - 0.05f) * 100).roundToInt() / 100f).coerceIn(0.1f, 20f)) } },
+                onPlus = { act.update { it.copy(fuelPrice = (((it.fuelPrice + 0.05f) * 100).roundToInt() / 100f).coerceIn(0.1f, 20f)) } }
             )
             Hint(stringResource(R.string.fuel_hint))
         }

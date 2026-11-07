@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -252,20 +253,30 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // Pulsing red frame around the whole screen while over the limit
+                        ParkedOverlay(parked, s, weather, prayer, accent) { vm.userTouched() }
+                        WelcomeOverlay(welcome, s, weather, prayer, lastTrip, accent) { vm.dismissWelcome() }
+                        NightDim(night, s.nightDim)
+
+                        // Pulsing red frame around the whole screen while over the limit. Drawn
+                        // last, so night dimming and the parked/welcome screens can't hide it;
+                        // the pulse is read only while drawing, so it doesn't rebuild the screen.
                         if (overspeed) {
                             val pulse = rememberInfiniteTransition(label = "alert")
-                            val alpha by pulse.animateFloat(
+                            val alpha = pulse.animateFloat(
                                 initialValue = 0.35f, targetValue = 1f,
                                 animationSpec = infiniteRepeatable(tween(500), RepeatMode.Reverse),
                                 label = "alertAlpha"
                             )
-                            Box(Modifier.fillMaxSize().border(8.dp, Color(0xFFEF4444).copy(alpha = alpha)))
+                            Box(Modifier.fillMaxSize().drawBehind {
+                                val w = 8.dp.toPx()
+                                drawRect(
+                                    color = Color(0xFFEF4444).copy(alpha = alpha.value),
+                                    topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2),
+                                    size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = w)
+                                )
+                            })
                         }
-
-                        ParkedOverlay(parked, s, weather, prayer, accent) { vm.userTouched() }
-                        WelcomeOverlay(welcome, s, weather, prayer, lastTrip, accent) { vm.dismissWelcome() }
-                        NightDim(night, s.nightDim)
                     }
                 }
             }
@@ -349,7 +360,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumeTick.intValue++
-        MediaService.requestRefresh()
+        // Coming back to CarHome counts as a touch: show the tiles, not the parked clock
+        vm.userTouched()
+        MediaService.requestRefresh(this)
         vm.engine.start()
         core.obd.sync()
     }

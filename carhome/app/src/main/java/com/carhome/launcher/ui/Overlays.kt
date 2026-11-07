@@ -145,7 +145,7 @@ fun ParkedOverlay(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(time, fontSize = 150.sp, fontWeight = FontWeight.Thin, color = TextPrimary, lineHeight = 150.sp)
                 Text(date, fontSize = 24.sp, color = TextSecondary)
-                if (hijri != null) Text(hijri, fontSize = 20.sp, color = TextSecondary)
+                if (hijri != null && settings.showHijri) Text(hijri, fontSize = 20.sp, color = TextSecondary)
                 Spacer(Modifier.height(36.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(48.dp), verticalAlignment = Alignment.CenterVertically) {
                     weather?.let { w ->

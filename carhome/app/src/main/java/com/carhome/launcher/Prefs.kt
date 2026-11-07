@@ -214,13 +214,18 @@ class Prefs(context: Context) {
     }
 
     /** Tile contents: package name, "place:<id>", "smart", or "" for empty. Always [count] long. */
-    fun loadTiles(count: Int): List<String> {
-        val saved = sp.getString("tiles", null)?.split('|') ?: emptyList()
-        return List(count) { i -> saved.getOrNull(i).orEmpty() }
+    fun loadTiles(count: Int): List<String> = TileSlots.visible(savedTiles(), count)
+
+    private fun savedTiles(): List<String> = sp.getString("tiles", null)?.split('|') ?: emptyList()
+
+    /** Saves the visible tiles; slots hidden by a smaller tile count are kept. */
+    fun saveTiles(tiles: List<String>) {
+        sp.edit().putString("tiles", TileSlots.merge(tiles, savedTiles()).joinToString("|")).apply()
     }
 
-    fun saveTiles(tiles: List<String>) {
-        sp.edit().putString("tiles", tiles.joinToString("|")).apply()
+    /** Clears an uninstalled app or deleted place from every slot, hidden ones too. */
+    fun forgetTile(value: String) {
+        sp.edit().putString("tiles", TileSlots.forget(savedTiles(), value).joinToString("|")).apply()
     }
 
     fun loadPlaces(): List<Place> = runCatching {
@@ -256,12 +261,17 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putInt("bubble_y", v).apply()
 
     var odometerKm: Double
-        get() = sp.getString("odometer_km", null)?.toDoubleOrNull() ?: 0.0
-        set(v) = sp.edit().putString("odometer_km", v.toString()).apply()
+        get() = sp.getString("odometer_km", null)?.toDoubleOrNull()?.takeIf { it.isFinite() } ?: 0.0
+        set(v) { if (v.isFinite()) sp.edit().putString("odometer_km", v.toString()).apply() }
     /** Odometer reading at the last oil change. */
+    /** The prayer time the last reminder was for (so a restart doesn't repeat it). */
+    var remindedPrayerAt: Long
+        get() = sp.getLong("reminded_prayer_at", 0L)
+        set(v) = sp.edit().putLong("reminded_prayer_at", v).apply()
+
     var oilChangedAtKm: Double
-        get() = sp.getString("oil_at_km", null)?.toDoubleOrNull() ?: 0.0
-        set(v) = sp.edit().putString("oil_at_km", v.toString()).apply()
+        get() = sp.getString("oil_at_km", null)?.toDoubleOrNull()?.takeIf { it.isFinite() } ?: 0.0
+        set(v) { if (v.isFinite()) sp.edit().putString("oil_at_km", v.toString()).apply() }
 
     fun loadTrip(key: String = "trip"): TripStats? = runCatching {
         val o = JSONObject(sp.getString(key, null) ?: return null)
@@ -276,10 +286,14 @@ class Prefs(context: Context) {
 
     fun saveTrip(t: TripStats?, key: String = "trip") {
         if (t == null) { sp.edit().remove(key).apply(); return }
-        val o = JSONObject().apply {
-            put("start", t.startedAt); put("dist", t.distanceM); put("moving", t.movingMs)
-            put("max", t.maxMps.toDouble()); put("harsh", t.harshEvents)
-        }
+        // JSON can't hold NaN or infinity; never let a bad number crash the save
+        fun fin(d: Double) = if (d.isFinite()) d else 0.0
+        val o = runCatching {
+            JSONObject().apply {
+                put("start", t.startedAt); put("dist", fin(t.distanceM)); put("moving", t.movingMs)
+                put("max", fin(t.maxMps.toDouble())); put("harsh", t.harshEvents)
+            }
+        }.getOrNull() ?: return
         sp.edit().putString(key, o.toString()).apply()
     }
 
@@ -337,6 +351,11 @@ class Prefs(context: Context) {
     var savedBrightness: Int
         get() = sp.getInt("saved_brightness", -1)
         set(v) = sp.edit().putInt("saved_brightness", v).apply()
+
+    /** Brightness mode (manual or automatic) saved with it; restored with the level. */
+    var savedBrightnessMode: Int
+        get() = sp.getInt("saved_brightness_mode", 0)
+        set(v) = sp.edit().putInt("saved_brightness_mode", v).apply()
 }
 
 // ── JSON mapping ──────────────────────────────────────────────────────────────

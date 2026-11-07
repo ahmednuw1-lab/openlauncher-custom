@@ -62,11 +62,25 @@ class MediaService : NotificationListenerService() {
         super.onDestroy()
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification?) = refresh()
-    override fun onNotificationRemoved(sbn: StatusBarNotification?) = refresh()
+    // Session and controller callbacks already report changes; notifications are only a
+    // fallback, so ignore everything except media ones (progress, chats, downloads…)
+    override fun onNotificationPosted(sbn: StatusBarNotification?) { if (isMedia(sbn)) refresh() }
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) { if (isMedia(sbn)) refresh() }
+
+    private fun isMedia(sbn: StatusBarNotification?): Boolean {
+        val n = sbn?.notification ?: return false
+        return n.extras?.containsKey(android.app.Notification.EXTRA_MEDIA_SESSION) == true ||
+            n.category == android.app.Notification.CATEGORY_TRANSPORT
+    }
+
+    /** What the card shows, minus the picture: when it's unchanged nothing is re-sent. */
+    private var lastKey: String? = null
+    private var lastArtKey: String? = null
+    private var lastArt: Bitmap? = null
 
     private fun cleanup() {
         instance = null
+        lastKey = null; lastArtKey = null; lastArt = null
         runCatching { sessionManager()?.removeOnActiveSessionsChangedListener(sessionsListener) }
         active?.unregisterCallback(controllerCallback)
         active = null
@@ -87,6 +101,7 @@ class MediaService : NotificationListenerService() {
         if (pick == null) {
             active?.unregisterCallback(controllerCallback)
             active = null
+            lastKey = null; lastArtKey = null; lastArt = null
             _nowPlaying.value = null
             return
         }
@@ -98,20 +113,32 @@ class MediaService : NotificationListenerService() {
         }
         val c = active ?: return
         val meta = c.metadata
-        _nowPlaying.value = NowPlaying(
-            title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE)
-                ?: meta?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
-                ?: "",
-            artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST)
-                ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
-                ?: meta?.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
-                ?: "",
-            art = runCatching {
+        val title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE)
+            ?: meta?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+            ?: ""
+        val artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST)
+            ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+            ?: meta?.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
+            ?: ""
+        val playing = c.playbackState?.state == PlaybackState.STATE_PLAYING
+        val artKey = "${c.sessionToken.hashCode()}|$title|$artist|${meta?.getString(MediaMetadata.METADATA_KEY_ALBUM)}"
+        val key = "$artKey|$playing"
+        if (key == lastKey && _nowPlaying.value != null) return   // nothing the card shows has changed
+        lastKey = key
+        // Same song: keep the picture we already have (no new bitmap, no new colour pass)
+        if (artKey != lastArtKey) {
+            lastArtKey = artKey
+            lastArt = runCatching {
                 meta?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                     ?: meta?.getBitmap(MediaMetadata.METADATA_KEY_ART)
                     ?: meta?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
-            }.getOrNull(),
-            isPlaying = c.playbackState?.state == PlaybackState.STATE_PLAYING,
+            }.getOrNull()
+        }
+        _nowPlaying.value = NowPlaying(
+            title = title,
+            artist = artist,
+            art = lastArt,
+            isPlaying = playing,
             appPackage = c.packageName.orEmpty(),
             controller = c
         )
@@ -122,7 +149,14 @@ class MediaService : NotificationListenerService() {
         val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying
 
         @Volatile private var instance: MediaService? = null
-        fun requestRefresh() { instance?.refresh() }
+        fun requestRefresh(context: Context? = null) {
+            val svc = instance
+            if (svc != null) { svc.refresh(); return }
+            // Granted but not connected (some boxes after an app update): ask Android to rebind
+            if (context != null && hasAccess(context)) runCatching {
+                NotificationListenerService.requestRebind(ComponentName(context, MediaService::class.java))
+            }
+        }
 
         fun hasAccess(context: Context): Boolean =
             NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)

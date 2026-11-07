@@ -50,6 +50,7 @@ import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -74,6 +75,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import com.carhome.launcher.Astro
 import com.carhome.launcher.GpsState
 import com.carhome.launcher.HourForecast
@@ -99,6 +102,10 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.heightIn
 
 @Composable
 fun appLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
@@ -254,7 +261,7 @@ fun WeatherStrip(
 @Composable
 private fun HourCell(h: HourForecast, use24h: Boolean, locale: Locale) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(hourLabel(h.hour, use24h, locale), fontSize = 11.sp, color = TextSecondary, maxLines = 1)
+        Text(hourLabel(h.hour, use24h, locale), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(weatherIcon(weatherKind(h.code), h.isDay), null, tint = TextSecondary, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(3.dp))
@@ -391,7 +398,7 @@ fun SpeedCard(
             GpsState.LOCATION_OFF -> CardMessage(Icons.Rounded.LocationOn, stringResource(R.string.location_off), WarnAmber)
             GpsState.NO_HARDWARE -> CardMessage(Icons.Rounded.Speed, stringResource(R.string.no_gps_hw), TextSecondary)
             else -> {
-                val value = speedMps?.let { speedInUnit(it, settings.useKmh) }
+                val value = speedMps?.takeIf { it.isFinite() }?.let { speedInUnit(it, settings.useKmh) }
                 val shown by animateFloatAsState(value ?: 0f, tween(700), label = "speed")
                 val maxScale = if (settings.useKmh) 200f else 130f
                 val arcColor = if (overspeed) AlertRed else accent
@@ -411,17 +418,17 @@ fun SpeedCard(
                 val status: @Composable () -> Unit = {
                     when {
                         value == null ->
-                            Text(stringResource(R.string.waiting_gps_sats, satellites), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                            Text(stringResource(R.string.waiting_gps_sats, satellites), fontSize = 14.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         stale ->
-                            Text(stringResource(R.string.weak_signal), fontSize = 12.sp, color = WarnAmber, maxLines = 1)
+                            Text(stringResource(R.string.weak_signal), fontSize = 14.sp, color = WarnAmber, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         approx ->
-                            Text(stringResource(R.string.approx_status), fontSize = 12.sp, color = WarnAmber, maxLines = 1)
+                            Text(stringResource(R.string.approx_status), fontSize = 14.sp, color = WarnAmber, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         overspeed ->
                             Text(stringResource(R.string.over_limit), fontSize = 13.sp, color = AlertRed, fontWeight = FontWeight.SemiBold, maxLines = 1)
                         settings.speedAlert && limit.limit != null ->
-                            Text(stringResource(R.string.limit_short, limit.limit), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                            Text(stringResource(R.string.limit_short, limit.limit), fontSize = 14.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         settings.speedAlert && settings.roadLimit ->
-                            Text(stringResource(R.string.no_road_limit), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                            Text(stringResource(R.string.no_road_limit), fontSize = 14.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
 
@@ -561,18 +568,28 @@ fun MusicCard(
             }
         }
         val big = if (driving) 84.dp else if (compact) 60.dp else 72.dp
-        val small = if (driving) 64.dp else if (compact) 48.dp else 56.dp
-        val controls: @Composable () -> Unit = {
-            GlassIconButton(Icons.Rounded.SkipPrevious, stringResource(R.string.previous), onPrevious, size = small)
-            GlassIconButton(
-                icon = if (nowPlaying?.isPlaying == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = stringResource(R.string.play_pause),
-                onClick = onPlayPause,
-                size = big,
-                tint = Color.White,
-                filled = accent
-            )
-            GlassIconButton(Icons.Rounded.SkipNext, stringResource(R.string.next), onNext, size = small)
+        val small = if (driving) 64.dp else 56.dp   // never under 56 dp: tapped while driving
+        // Playback controls are never mirrored: in Arabic too, previous stays on the left
+        // and next on the right, as on every car stereo
+        val controls: @Composable (Boolean) -> Unit = { spread ->
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(
+                    modifier = if (spread) Modifier.fillMaxWidth() else Modifier,
+                    horizontalArrangement = if (spread) Arrangement.SpaceEvenly else Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    GlassIconButton(Icons.Rounded.SkipPrevious, stringResource(R.string.previous), onPrevious, size = small)
+                    GlassIconButton(
+                        icon = if (nowPlaying?.isPlaying == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = stringResource(R.string.play_pause),
+                        onClick = onPlayPause,
+                        size = big,
+                        tint = Color.White,
+                        filled = accent
+                    )
+                    GlassIconButton(Icons.Rounded.SkipNext, stringResource(R.string.next), onNext, size = small)
+                }
+            }
         }
 
         when {
@@ -594,18 +611,14 @@ fun MusicCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 titleBlock(Modifier.weight(1f))
-                controls()
+                controls(false)
             }
             else -> Column(
                 modifier = Modifier.fillMaxSize().padding(20.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 titleBlock(Modifier.fillMaxWidth())
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) { controls() }
+                controls(true)
             }
         }
     }
@@ -632,7 +645,7 @@ fun PrayerChip(prayer: PrayerInfo?, use24h: Boolean, accent: Color, modifier: Mo
                     "${stringResource(prayerName(prayer.next.prayer))} ${formatTime(prayer.next.at, use24h, locale)}",
                     fontSize = 16.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1
                 )
-                Text(countdown(prayer.next.at - now), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                Text(countdown(prayer.next.at - now), fontSize = 13.sp, color = TextSecondary, maxLines = 1)
             }
         }
     }
@@ -661,7 +674,7 @@ fun PrayerCard(
                     Icon(Icons.Rounded.Mosque, null, tint = accent, modifier = Modifier.size(28.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.next_prayer), fontSize = 12.sp, color = TextSecondary, lineHeight = 14.sp)
+                        Text(stringResource(R.string.next_prayer), fontSize = 13.sp, color = TextSecondary, lineHeight = 14.sp)
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(stringResource(prayerName(next.prayer)), fontSize = 22.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold, lineHeight = 26.sp)
                             Spacer(Modifier.width(10.dp))
@@ -679,7 +692,7 @@ fun PrayerCard(
                             val isNext = p == next.prayer && Calendar.getInstance().apply { timeInMillis = next.at }
                                 .get(Calendar.DAY_OF_YEAR) == Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(stringResource(prayerName(p)), fontSize = 12.sp, color = if (isNext) accent else TextSecondary, maxLines = 1)
+                                Text(stringResource(prayerName(p)), fontSize = 13.sp, color = if (isNext) accent else TextSecondary, maxLines = 1)
                                 Text(
                                     formatTime(prayer.day.timeOf(p), use24h, locale).replace(" ", " "),
                                     fontSize = 14.sp, color = if (isNext) accent else TextPrimary, maxLines = 1
@@ -695,21 +708,48 @@ fun PrayerCard(
 
 @Composable
 fun SmallPill(icon: ImageVector, label: String, accent: Color, onClick: () -> Unit) {
+    // At least 48 dp tall to tap while driving (the pill itself stays compact)
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(22.dp))
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(accent.copy(alpha = 0.2f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = accent, modifier = Modifier.size(18.dp))
+        Icon(icon, null, tint = accent, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(6.dp))
-        Text(label, fontSize = 14.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(label, fontSize = 15.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 
 // ── Trip ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Two taps start a new trip: the first turns the button into a tick for 3 s, the
+ * second resets. One stray tap while driving can't wipe the trip.
+ */
+@Composable
+private fun ResetTripButton(onReset: () -> Unit, accent: Color, hit: Dp) {
+    var armed by remember { mutableStateOf(false) }
+    LaunchedEffect(armed) {
+        if (armed) { delay(3_000L); armed = false }
+    }
+    Box(
+        Modifier.size(hit).clip(CircleShape)
+            .background(if (armed) accent.copy(alpha = 0.25f) else Color.Transparent)
+            .clickable { if (armed) { armed = false; onReset() } else armed = true },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            if (armed) Icons.Rounded.Check else Icons.Rounded.Refresh,
+            stringResource(if (armed) R.string.tap_again_new_trip else R.string.new_trip),
+            tint = if (armed) accent else TextSecondary,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
 
 @Composable
 fun distanceText(metres: Double, useKmh: Boolean): String {
@@ -742,9 +782,7 @@ fun TripCard(
                 Stat(stringResource(R.string.distance), distanceText(trip.distanceM, settings.useKmh), Modifier.weight(1f))
                 Stat(stringResource(R.string.drive_time), durationText(trip.movingMs), Modifier.weight(1f))
                 Stat(stringResource(R.string.avg_speed), String.format(loc, "%d %s", speedInUnit(trip.avgMps, settings.useKmh).roundToInt(), unit), Modifier.weight(1f))
-                Box(Modifier.size(30.dp).clip(CircleShape).clickable(onClick = onReset), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Refresh, stringResource(R.string.new_trip), tint = TextSecondary, modifier = Modifier.size(20.dp))
-                }
+                ResetTripButton(onReset, accent, 56.dp)
             }
             return@BoxWithConstraints
         }
@@ -757,10 +795,7 @@ fun TripCard(
                         Spacer(Modifier.width(8.dp))
                     }
                 }
-                Box(
-                    Modifier.size(30.dp).clip(CircleShape).clickable(onClick = onReset),
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.Rounded.Refresh, stringResource(R.string.new_trip), tint = TextSecondary, modifier = Modifier.size(20.dp)) }
+                ResetTripButton(onReset, accent, 44.dp)
             }
             Row(Modifier.fillMaxWidth()) {
                 Stat(stringResource(R.string.distance), distanceText(trip.distanceM, settings.useKmh), Modifier.weight(1f))
@@ -781,7 +816,7 @@ fun TripCard(
             if (tall && lastTrip != null) {
                 Text(
                     stringResource(R.string.last_trip_line, distanceText(lastTrip.distanceM, settings.useKmh), durationText(lastTrip.movingMs)),
-                    fontSize = 12.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    fontSize = 13.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -797,7 +832,7 @@ fun scoreColor(score: Int): Color = when {
 @Composable
 private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier) {
-        Text(label, fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+        Text(label, fontSize = 13.sp, color = TextSecondary, maxLines = 1)
         Text(value, fontSize = 20.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }

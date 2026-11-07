@@ -13,8 +13,8 @@ android {
         applicationId = "com.carhome.launcher"
         minSdk        = 26
         targetSdk     = 36
-        versionCode   = 9
-        versionName   = "1.2.6"
+        versionCode   = 10
+        versionName   = "1.2.7"
     }
 
     // One fixed key for every build. GitHub's runners create a new random debug
@@ -49,6 +49,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Plain JVM unit tests for the pure logic (speed maths, alerts, prayer
+    // times, settings). Android calls that aren't mocked return defaults.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -69,4 +75,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+    testImplementation("junit:junit:4.13.2")
+    // Real org.json for tests (the Android stub only throws)
+    testImplementation("org.json:json:20240303")
 }

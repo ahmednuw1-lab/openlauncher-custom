@@ -55,10 +55,11 @@ class Voice(private val core: Core) {
         val loc = core.appLocale()
         val r = runCatching { t.setLanguage(loc) }.getOrDefault(TextToSpeech.LANG_NOT_SUPPORTED)
         ttsLocale = loc
+        ttsChannel = core.settings.value.alertChannel
         runCatching {
             t.setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                    .setUsage(channelUsage())
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             )
@@ -82,11 +83,19 @@ class Voice(private val core: Core) {
         say(core.localized().getString(id, *args), force)
     }
 
+    private var ttsChannel: SoundChannel? = null
+
     private fun speakNow(text: String) {
         val t = tts ?: return
-        if (ttsLocale != core.appLocale()) applyLocale()
+        // Re-apply when the language or the sound channel changed in Settings
+        if (ttsLocale != core.appLocale() || ttsChannel != core.settings.value.alertChannel) applyLocale()
         if (_status.value == VoiceStatus.NO_LANGUAGE) return
-        runCatching { t.speak(text, TextToSpeech.QUEUE_ADD, null, "carhome-${System.nanoTime()}") }
+        runCatching {
+            // A short silence first, like the beep, so the car has switched audio to the box
+            // (and a beep that's still playing has finished) before the words start
+            t.playSilentUtterance(700L, TextToSpeech.QUEUE_ADD, "carhome-lead-${System.nanoTime()}")
+            t.speak(text, TextToSpeech.QUEUE_ADD, null, "carhome-${System.nanoTime()}")
+        }
     }
 
     // ── Sounds ──────────────────────────────────────────────────────────────
@@ -106,18 +115,24 @@ class Voice(private val core: Core) {
     /** Two soft bell notes (E6 → C6), made in code so no sound file is needed. */
     fun chime() = play(chimePcm)
 
+    private fun channelUsage(): Int =
+        if (core.settings.value.alertChannel == SoundChannel.MEDIA) AudioAttributes.USAGE_MEDIA
+        else AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
+
     private fun play(pcm: ShortArray) {
-        runCatching {
-            val media = core.settings.value.alertChannel == SoundChannel.MEDIA
+        var track: AudioTrack? = null
+        var focus: android.media.AudioFocusRequest? = null
+        try {
             val attrs = AudioAttributes.Builder()
-                .setUsage(if (media) AudioAttributes.USAGE_MEDIA else AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                .setUsage(channelUsage())
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
-            val focus = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            val fr = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(attrs)
                 .build()
-            runCatching { am.requestAudioFocus(focus) }
-            val track = AudioTrack.Builder()
+            focus = fr
+            runCatching { am.requestAudioFocus(fr) }
+            val tr = AudioTrack.Builder()
                 .setAudioAttributes(attrs)
                 .setAudioFormat(
                     AudioFormat.Builder()
@@ -129,14 +144,24 @@ class Voice(private val core: Core) {
                 .setTransferMode(AudioTrack.MODE_STATIC)
                 .setBufferSizeInBytes(pcm.size * 2)
                 .build()
-            track.write(pcm, 0, pcm.size)
-            track.setVolume(1f)
-            track.play()
+            track = tr
+            tr.write(pcm, 0, pcm.size)
+            tr.setVolume(1f)
+            tr.play()
             val ms = pcm.size * 1000L / SAMPLE_RATE + 300
             main.postDelayed({
-                runCatching { track.release() }
-                runCatching { am.abandonAudioFocusRequest(focus) }
+                runCatching { tr.release() }
+                runCatching { am.abandonAudioFocusRequest(fr) }
             }, ms)
+            // Handed over to the delayed clean-up
+            track = null
+            focus = null
+        } catch (_: Throwable) {
+            // No sound this time; never crash the home screen over a beep
+        } finally {
+            // Whatever failed, give the music its volume back and free the track
+            track?.let { runCatching { it.release() } }
+            focus?.let { f -> runCatching { am.abandonAudioFocusRequest(f) } }
         }
     }
 

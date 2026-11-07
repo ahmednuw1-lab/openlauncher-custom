@@ -346,8 +346,25 @@ private fun gridShape(count: Int): Pair<Int, Int> = when (count) {
     else -> 4 to 2
 }
 
+/**
+ * Only what a tile shows. Built once per change of these fields, so speed and trip
+ * updates (every second) don't redraw every tile.
+ */
+private data class TileLook(
+    val settings: LauncherSettings,
+    val accent: Color,
+    val appsByPackage: Map<String, AppEntry>,
+    val placesById: Map<String, Place>,
+    val smartPick: AppEntry?,
+    val driving: Boolean,
+    val parkedOnly: Set<String>
+)
+
 @Composable
 private fun TileGrid(st: HomeState, act: HomeActions, tiles: List<String>, modifier: Modifier) {
+    val look = remember(st.settings, st.accent, st.appsByPackage, st.placesById, st.smartPick, st.driving, st.parkedOnly) {
+        TileLook(st.settings, st.accent, st.appsByPackage, st.placesById, st.smartPick, st.driving, st.parkedOnly)
+    }
     val shape = gridShape(tiles.size)
     val cols = shape.first
     val rows = shape.second
@@ -362,7 +379,7 @@ private fun TileGrid(st: HomeState, act: HomeActions, tiles: List<String>, modif
                     val value = tiles.getOrNull(index).orEmpty()
                     AppTile(
                         value = value,
-                        st = st,
+                        st = look,
                         onClick = { act.openTile(index, value) },
                         onChange = { act.changeTile(index) },
                         onRemove = { act.removeTile(index) },
@@ -379,7 +396,7 @@ private fun TileGrid(st: HomeState, act: HomeActions, tiles: List<String>, modif
 @Composable
 private fun AppTile(
     value: String,
-    st: HomeState,
+    st: TileLook,
     onClick: () -> Unit,
     onChange: () -> Unit,
     onRemove: () -> Unit,
@@ -391,9 +408,9 @@ private fun AppTile(
     val scale = rememberPressScale(interaction)
     val accent = st.accent
     val labels = st.settings.showTileLabels
-    val iconSize = if (st.driving) 84.dp else 68.dp
+    val baseIcon = if (st.driving) 84.dp else 68.dp
     val isApp = value.isNotEmpty() && value != TILE_SMART && !value.startsWith(TILE_PLACE)
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .scale(scale)
             .glass(RoundedCornerShape(26.dp))
@@ -405,10 +422,16 @@ private fun AppTile(
             ),
         contentAlignment = Alignment.Center
     ) {
+        // Fit the icon (and the name, if there's room) to the tile, so nothing is cut
+        // off with 12 tiles on a low screen or with large text
+        val labelSpace = 12.dp + 22.dp * st.settings.textSize.scale
+        val fitLabels = labels && maxHeight - 20.dp - labelSpace >= 36.dp
+        val iconSize = minOf(baseIcon, maxHeight - 20.dp - (if (fitLabels) labelSpace else 0.dp)).coerceAtLeast(24.dp)
+        val labels = fitLabels
         when {
             value.isEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
-                    modifier = Modifier.size(56.dp).clip(CircleShape).background(accent.copy(alpha = 0.18f)),
+                    modifier = Modifier.size(minOf(56.dp, iconSize)).clip(CircleShape).background(accent.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Rounded.Add, null, tint = accent, modifier = Modifier.size(30.dp))
@@ -433,7 +456,10 @@ private fun AppTile(
 
             value.startsWith(TILE_PLACE) -> {
                 val p = st.placesById[value.removePrefix(TILE_PLACE)]
-                TileBody(Icons.Rounded.Place, p?.name ?: "…", accent, true, iconSize)
+                // A place always shows its name when there's room: the pin alone says nothing
+                val placeRoom = maxHeight - 20.dp - labelSpace >= 36.dp
+                val placeIcon = if (placeRoom) minOf(iconSize, maxHeight - 20.dp - labelSpace) else iconSize
+                TileBody(Icons.Rounded.Place, p?.name ?: "…", accent, placeRoom, placeIcon)
             }
 
             else -> {

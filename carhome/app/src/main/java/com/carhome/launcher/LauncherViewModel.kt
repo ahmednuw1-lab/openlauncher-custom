@@ -159,11 +159,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun updateSettings(block: (LauncherSettings) -> LauncherSettings) {
         val (old, new) = core.updateSettings(block)
         if (new.tileCount != old.tileCount) {
-            // Keep the user's choices; growing adds empty tiles, shrinking hides the tail
-            val current = _tiles.value
-            val resized = List(new.tileCount) { i -> current.getOrNull(i).orEmpty() }
-            _tiles.value = resized
-            prefs.saveTiles(resized)
+            // Shrinking only hides the tail (it stays saved); growing brings it back
+            _tiles.value = prefs.loadTiles(new.tileCount)
         }
         if (new.bubble != old.bubble || new.backgroundTracking != old.backgroundTracking) DriveService.sync(ctx)
         if (new.obd != old.obd || new.obdAddress != old.obdAddress) core.obd.sync()
@@ -225,6 +222,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             ) {
                 val pkg = intent.data?.schemeSpecificPart ?: return
                 _tiles.value.forEachIndexed { i, p -> if (p == pkg) setTile(i, "") }
+                prefs.forgetTile(pkg)
             }
         }
     }
@@ -305,6 +303,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         _places.value = _places.value.filterNot { it.id == id }
         prefs.savePlaces(_places.value)
         _tiles.value.forEachIndexed { i, v -> if (v == TILE_PLACE + id) setTile(i, "") }
+        prefs.forgetTile(TILE_PLACE + id)
     }
 
     fun navigateTo(p: Place) {
@@ -437,7 +436,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                     hadLocation = true
                     val w = fetchWeather(loc.latitude, loc.longitude)
                     if (w != null) _weather.value = w
-                    if (s.dustWarning) _dustInHours.value = fetchDustInHours(loc.latitude, loc.longitude)
+                    // A failed download keeps the current warning instead of clearing it
+                    if (s.dustWarning) fetchDustInHours(loc.latitude, loc.longitude).onSuccess { _dustInHours.value = it }
                     // After a failed download retry soon, then back off: 20 s, 1 min, 2 min
                     failures = if (w != null) 0 else failures + 1
                     nextAt = System.currentTimeMillis() + when {
@@ -491,11 +491,16 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (s.prayerReminder > 0 && next != null) {
             val left = next.at - now
             if (left in 0..(s.prayerReminder * 60_000L)) {
-                if (remindedFor != next.at) {
+                if (remindedFor != next.at && prefs.remindedPrayerAt != next.at) {
                     remindedFor = next.at
+                    prefs.remindedPrayerAt = next.at   // a restart inside the window doesn't chime again
                     if (s.prayerChime) core.voice.chime()
                     if (s.voicePrayer) {
-                        core.voice.say(R.string.voice_prayer, core.localized().getString(prayerName(next.prayer)), s.prayerReminder)
+                        // The real minutes left (the car may start 3 min before), in proper grammar
+                        val mins = ((left + 59_999L) / 60_000L).toInt().coerceAtLeast(1)
+                        val ctx = core.localized()
+                        core.voice.say(ctx.resources.getQuantityString(
+                            R.plurals.voice_prayer_min, mins, ctx.getString(prayerName(next.prayer)), mins))
                     }
                 }
                 if ("PRAYER${next.at}" !in dismissed) list += Notice(NoticeKind.PRAYER, prayer = next.prayer, at = next.at)
@@ -526,7 +531,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private fun updateParked() {
         val s = settings.value
         val idle = SystemClock.elapsedRealtime() - lastTouch
-        val should = s.parkedScreen && _nav.value.page == Page.HOME && !engine.moving.value &&
+        // Only when we know the car is stopped (speed unknown is not "stopped": no GPS,
+        // a tunnel) and CarHome itself is on screen
+        val stopped = engine.speedMps.value != null && !engine.speedStale.value && !engine.moving.value
+        val should = s.parkedScreen && _nav.value.page == Page.HOME && stopped && core.uiVisible.value &&
             idle >= s.parkedAfterMin * 60_000L
         if (should != _parked.value) _parked.value = should
     }
@@ -549,19 +557,32 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     fun canWriteSystem(): Boolean = Settings.System.canWrite(ctx)
 
+    /** Last dim level written, so the minute loop doesn't undo the user's own changes. */
+    private var dimApplied: Int? = null
+
     private fun applySystemBrightness(dim: Boolean, s: LauncherSettings) {
         if (!canWriteSystem()) return
+        val want = if (dim) s.nightDim else -1
+        if (want == dimApplied) return
         runCatching {
             val cr = ctx.contentResolver
             if (dim) {
-                if (prefs.savedBrightness < 0) prefs.savedBrightness = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 160)
+                if (prefs.savedBrightness < 0) {
+                    prefs.savedBrightness = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 160)
+                    prefs.savedBrightnessMode = Settings.System.getInt(
+                        cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
+                    )
+                }
                 Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
                 val level = (prefs.savedBrightness * (1f - s.nightDim / 100f)).toInt().coerceIn(8, 255)
                 Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, level)
             } else if (prefs.savedBrightness >= 0) {
+                // Put back both the level and automatic brightness, if it was on
                 Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, prefs.savedBrightness)
+                Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, prefs.savedBrightnessMode)
                 prefs.savedBrightness = -1
             }
+            dimApplied = want
         }
     }
 

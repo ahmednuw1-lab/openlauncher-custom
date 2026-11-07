@@ -32,18 +32,32 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build debug APK
+      - name: Run unit tests
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug
+          ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: carhome-test-report
+          path: carhome/app/build/reports/tests/
+          if-no-files-found: ignore
+
+      # The release build: not debuggable (faster on the box, private data can't be
+      # read over adb). Same signing key, so it installs over the earlier builds.
+      - name: Build release APK
+        run: ./gradlew --no-daemon assembleRelease
 
       - name: Publish APK as a release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK=$(ls app/build/outputs/apk/debug/*.apk | head -n 1)
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
           cp "$APK" carhome.apk
           gh release create "carhome-${{ github.run_number }}" carhome.apk \
+            --target "${{ github.sha }}" \
             --title "CarHome build ${{ github.run_number }}" \
             --notes "Automatic build of ${{ github.sha }}" \
             --prerelease

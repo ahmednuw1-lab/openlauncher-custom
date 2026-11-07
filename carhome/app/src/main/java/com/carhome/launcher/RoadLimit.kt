@@ -36,27 +36,35 @@ class RoadLimits {
     @Volatile private var ways: List<Way> = emptyList()
     @Volatile private var centerLat = Double.NaN
     @Volatile private var centerLon = Double.NaN
-    @Volatile private var lastAttemptAt = 0L
+    @Volatile private var lastAttemptAt = -1_000_000L
     @Volatile private var fetching = false
 
-    /** Null when the car is too far from any known road (or nothing downloaded yet). */
-    suspend fun match(lat: Double, lon: Double, bearing: Float?): RoadMatch? {
-        val needsArea = centerLat.isNaN() || metres(lat, lon, centerLat, centerLon) > 300.0
-        val now = System.currentTimeMillis()
-        if (needsArea && !fetching && now - lastAttemptAt > 20_000L) {
-            fetching = true
-            lastAttemptAt = now
-            try {
-                download(lat, lon)?.let { list ->
-                    ways = list
-                    centerLat = lat
-                    centerLon = lon
-                }
-            } finally {
-                fetching = false
+    /**
+     * Matches against the roads already downloaded, straight away. Null when the car
+     * is too far from any known road (or nothing downloaded yet).
+     */
+    fun matchNow(lat: Double, lon: Double, bearing: Float?): RoadMatch? = nearest(lat, lon, bearing)
+
+    /** True when the car has left the downloaded area and a new one should be fetched. */
+    fun needsArea(lat: Double, lon: Double): Boolean {
+        val far = centerLat.isNaN() || metres(lat, lon, centerLat, centerLon) > 300.0
+        return far && !fetching && android.os.SystemClock.elapsedRealtime() - lastAttemptAt > 20_000L
+    }
+
+    /** Downloads the roads around the car (run in the background; matching doesn't wait for it). */
+    suspend fun refresh(lat: Double, lon: Double) {
+        if (fetching) return
+        fetching = true
+        lastAttemptAt = android.os.SystemClock.elapsedRealtime()
+        try {
+            download(lat, lon)?.let { list ->
+                ways = list
+                centerLat = lat
+                centerLon = lon
             }
+        } finally {
+            fetching = false
         }
-        return nearest(lat, lon, bearing)
     }
 
     private suspend fun download(exactLat: Double, exactLon: Double): List<Way>? = withContext(Dispatchers.IO) {
@@ -75,7 +83,7 @@ class RoadLimits {
                 conn.doOutput = true
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 20_000
-                conn.setRequestProperty("User-Agent", "CarHome/1.2 (Android launcher)")
+                conn.setRequestProperty("User-Agent", "CarHome/1.2.7 (Android launcher)")
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                 conn.outputStream.use { it.write(("data=" + URLEncoder.encode(q, "UTF-8")).toByteArray()) }
                 if (conn.responseCode != 200) return@runCatching null

@@ -91,31 +91,35 @@ suspend fun fetchWeather(lat: Double, lon: Double): WeatherInfo? = withContext(D
  * Hours until dust in the air reaches a level that cuts visibility (≥ 150 µg/m³)
  * within the next 12 hours, from Open-Meteo's free air-quality forecast. 0 = now.
  */
-suspend fun fetchDustInHours(lat: Double, lon: Double): Int? = withContext(Dispatchers.IO) {
+/**
+ * Hours until heavy dust (>= 150 µg/m³) within the next 12 h; success(null) when none.
+ * A failure is reported as such, so the caller can keep the last answer. Times are
+ * asked for as Unix time, so a box set to the wrong time zone can't shift the window.
+ */
+suspend fun fetchDustInHours(lat: Double, lon: Double): Result<Int?> = withContext(Dispatchers.IO) {
     runCatching {
         val body = httpGet(
             String.format(
                 Locale.US,
                 "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%.2f&longitude=%.2f" +
-                    "&hourly=dust&forecast_days=2&timezone=auto",
+                    "&hourly=dust&forecast_days=2&timeformat=unixtime",
                 lat, lon
             )
-        ) ?: return@runCatching null
-        val root = JSONObject(body)
-        val hourly = root.getJSONObject("hourly")
+        ) ?: error("no reply")
+        val hourly = JSONObject(body).getJSONObject("hourly")
         val times = hourly.getJSONArray("time")
         val dust = hourly.getJSONArray("dust")
-        val nowHour = SimpleDateFormat("yyyy-MM-dd'T'HH:00", Locale.US).format(Date())
+        val nowHour = System.currentTimeMillis() / 1000L / 3600L * 3600L
         var ahead = 0
+        var found: Int? = null
         for (i in 0 until times.length()) {
-            val t = times.getString(i)
-            if (t < nowHour) continue
+            if (times.getLong(i) < nowHour) continue
             if (ahead > 12) break
-            if (!dust.isNull(i) && dust.getDouble(i) >= 150.0) return@runCatching ahead
+            if (!dust.isNull(i) && dust.getDouble(i) >= 150.0) { found = ahead; break }
             ahead++
         }
-        null
-    }.getOrNull()
+        found
+    }
 }
 
 /** First hourly slot from the current hour on (within 12 h) where [key] < [limit]. */

@@ -103,7 +103,7 @@ object Astro {
         PrayerMethod.KARACHI -> Angles(18.0, 18.0, 0)
     }
 
-    /** Hours-of-day (local) for fajr, sunrise, dhuhr, asr, sunset, isha-by-angle. */
+    /** Hours (universal time) for fajr, sunrise, dhuhr, asr, sunset, isha-by-angle. */
     private fun dayHours(
         cal: Calendar, lat: Double, lon: Double, method: PrayerMethod, hanafi: Boolean
     ): DoubleArray {
@@ -124,13 +124,14 @@ object Astro {
                 sunAngleTime(c, a.isha ?: 0.833, p[5], ccw = false)
             )
         }
-        val tz = TimeZone.getDefault().getOffset(cal.timeInMillis) / 3_600_000.0
-        return DoubleArray(6) { i -> t[i] + tz - lon / 15.0 }
+        // Universal time; added to UTC midnight, so daylight-saving changes can't shift it
+        return DoubleArray(6) { i -> t[i] - lon / 15.0 }
     }
 
-    private fun midnight(cal: Calendar): Long = (cal.clone() as Calendar).apply {
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    /** UTC midnight of the calendar's own (local) date. */
+    private fun utcMidnight(cal: Calendar): Long = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+        clear()
+        set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
     }.timeInMillis
 
     private fun at(base: Long, hours: Double): Long = base + (hours * 3_600_000.0).toLong()
@@ -139,7 +140,7 @@ object Astro {
         date: Calendar, lat: Double, lon: Double, method: PrayerMethod, hanafi: Boolean, ramadan: Boolean = false
     ): PrayerDay {
         val h = dayHours(date, lat, lon, method, hanafi)
-        val base = midnight(date)
+        val base = utcMidnight(date)
         val maghrib = at(base, h[4])
         val a = angles(method)
         val isha = if (a.isha == null) {
@@ -164,7 +165,7 @@ object Astro {
     fun sunTimes(now: Long, lat: Double, lon: Double): Pair<Long, Long> {
         val cal = Calendar.getInstance().apply { timeInMillis = now }
         val h = dayHours(cal, lat, lon, PrayerMethod.MWL, false)
-        val base = midnight(cal)
+        val base = utcMidnight(cal)
         return at(base, h[1]) to at(base, h[4])
     }
 

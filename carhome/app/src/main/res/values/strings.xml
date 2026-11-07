@@ -185,7 +185,7 @@
     <string name="night_system_hint">Also lowers the screen brightness of the box, not only CarHome. Needs one extra permission.</string>
     <string name="night_to">To</string>
     <string name="no_maps">No maps app found</string>
-    <string name="no_road_limit">No limit on this road</string>
+    <string name="no_road_limit">The map has no limit for this road</string>
     <string name="none">None</string>
     <string name="normal">Normal</string>
     <string name="notice_break">Time for a break: you\'ve been driving %1$d min</string>
@@ -310,7 +310,7 @@
     <string name="trip_started">New trip started</string>
     <string name="unit_kmh">Speed in km/h</string>
     <string name="unit_kmh_hint">Off shows mph</string>
-    <string name="version_line">CarHome 1.2.6</string>
+    <string name="version_line">CarHome 1.2.7</string>
     <string name="voice">Spoken alerts</string>
     <string name="voice_break">Time for a break</string>
     <string name="voice_dust">Dust is expected. Drive carefully</string>
@@ -320,7 +320,6 @@
     <string name="voice_oil">Oil change due</string>
     <string name="voice_on">Speak my alerts</string>
     <string name="voice_over_limit">Slow down. The limit is %1$d</string>
-    <string name="voice_prayer">%1$s in %2$d minutes</string>
     <string name="voice_prayer_toggle">Prayer reminders</string>
     <string name="voice_ready">Voice ready</string>
     <string name="voice_reminders">Break, oil and dust</string>
@@ -377,4 +376,9 @@
     <string name="channel_nav">Navigation prompt</string>
     <string name="channel_media">Media</string>
     <string name="alert_channel_hint">If Test alert is silent in your car, switch this and test again. Also check the car\'s volume.</string>
+    <string name="tap_again_new_trip">Tap again to start a new trip</string>
+    <plurals name="voice_prayer_min">
+        <item quantity="one">%1$s in %2$d minute</item>
+        <item quantity="other">%1$s in %2$d minutes</item>
+    </plurals>
 </resources>

@@ -134,4 +134,10 @@ class BubbleView(context: Context, private val listener: Listener) : View(contex
         }
         return true
     }
+
+    // Removed from the screen mid-press: the long press must not fire afterwards
+    override fun onDetachedFromWindow() {
+        handler.removeCallbacks(longPress)
+        super.onDetachedFromWindow()
+    }
 }

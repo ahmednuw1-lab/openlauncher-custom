@@ -115,7 +115,7 @@ class DriveEngine(private val core: Core) {
     private val _speedApprox = MutableStateFlow(false)
     /** True while the speed shown is an estimate from internet (Wi-Fi/cell) positions. */
     val speedApprox: StateFlow<Boolean> = _speedApprox.asStateFlow()
-    private val coarse = ArrayDeque<Location>()
+    private val coarse = ArrayDeque<ApproxSpeed.Fix>()
 
     private val _satellites = MutableStateFlow(0 to 0)
     /** Satellites seen, and used in the position fix. */
@@ -142,9 +142,7 @@ class DriveEngine(private val core: Core) {
     private var roadJob: Job? = null
 
     private var testUntil = 0L
-    private var episodeBeeped = false
-    private var spokeEpisode = false
-    private var lastBeepAt = 0L
+    private val alert = SpeedAlert()
 
     private var drivingMs = 0L
     private var stillMs = 0L
@@ -278,23 +276,30 @@ class DriveEngine(private val core: Core) {
     private fun onFix(loc: Location) {
         val now = SystemClock.elapsedRealtime()
         val prev = lastFix
-        // "passive" repeats fixes other sources already delivered
-        if (prev != null && loc.time <= prev.time) return
+        // "passive" repeats fixes other sources already delivered. Ordered by the boot
+        // clock, so a source with a wrong wall-clock time can't block later GPS fixes.
+        if (prev != null && loc.elapsedRealtimeNanos <= prev.elapsedRealtimeNanos) return
         val isGps = loc.provider == LocationManager.GPS_PROVIDER
         // GPS wins: other sources are only used when GPS has been quiet for 3 s
         if (!isGps && lastGpsFixAt > 0 && now - lastGpsFixAt < 3_000L) return
-        // Positions without a measured speed only give a speed when they're precise
-        // (±10 m) and about a second or more apart; otherwise ±25 m of error could read
-        // as 90 km/h. Imprecise ones still count toward the slower internet estimate.
-        if (!loc.hasSpeed()) {
-            val dtS = if (prev != null) (loc.time - prev.time) / 1000f else 0f
-            val tight = (!loc.hasAccuracy() || loc.accuracy <= 10f) &&
-                (prev == null || !prev.hasAccuracy() || prev.accuracy <= 10f)
-            if (!tight || prev == null || dtS < 0.9f || dtS > 10f) {
-                addCoarse(loc)
-                _location.value = loc
-                if (tight && prev == null) { lastFix = loc; lastFixAt = now }   // anchor for the next fix
-                return
+        val dtS = if (prev != null) (loc.elapsedRealtimeNanos - prev.elapsedRealtimeNanos) / 1e9f else 0f
+        // A measured speed must be a real number in a sane range (NaN would crash the card)
+        val measured = if (loc.hasSpeed()) SpeedMath.sanitize(loc.speed) ?: return else null
+        if (measured == null) {
+            // Positions without a measured speed only give a speed when they're precise
+            // (±10 m) and about 1–10 s apart; imprecise ones still count toward the
+            // slower internet estimate. A precise one becomes the new reference.
+            val acc = if (loc.hasAccuracy()) loc.accuracy else null
+            val prevAcc = prev?.let { if (it.hasAccuracy()) it.accuracy else null }
+            when (SpeedMath.classifyNoSpeedFix(acc, prev != null, prevAcc, dtS)) {
+                SpeedMath.NoSpeedFix.SKIP -> { addCoarse(loc); _location.value = loc; return }
+                SpeedMath.NoSpeedFix.ANCHOR -> {
+                    addCoarse(loc); _location.value = loc
+                    lastFix = loc
+                    prevSample = null
+                    return
+                }
+                SpeedMath.NoSpeedFix.DERIVE -> Unit
             }
         }
         if (isGps) lastGpsFixAt = now
@@ -305,20 +310,15 @@ class DriveEngine(private val core: Core) {
             _location.value = loc
             return
         }
-        val raw = when {
-            loc.hasSpeed() -> loc.speed
-            // Some GPS chips report no speed: derive it from consecutive fixes
-            prev != null && loc.time > prev.time -> prev.distanceTo(loc) / ((loc.time - prev.time) / 1000f)
-            else -> 0f
-        }.coerceAtLeast(0f)
+        // Some GPS chips report no speed: derive it from the reference fix
+        val raw = measured ?: SpeedMath.sanitize(prev!!.distanceTo(loc) / dtS) ?: return
 
         // Distance: only from accurate fixes while really moving
         if (prev != null) {
-            val dt = (loc.time - prev.time) / 1000.0
             val accurate = (!loc.hasAccuracy() || loc.accuracy <= 40f)
-            if (accurate && dt > 0 && dt < 30) {
+            if (accurate && dtS > 0f && dtS < 30f) {
                 val d = prev.distanceTo(loc).toDouble()
-                if (raw >= 0.8f && d / dt < 85.0) addDistance(d)
+                if (raw >= 0.8f && d / dtS < 85.0) addDistance(d)
             }
         }
 
@@ -337,9 +337,10 @@ class DriveEngine(private val core: Core) {
         lastFix = loc
         lastFixAt = now
 
-        // Light smoothing, and treat GPS jitter under ~2 km/h as standing still
-        val smoothed = _speedMps.value?.let { it * 0.35f + raw * 0.65f } ?: raw
-        val v = if (smoothed < 0.55f) 0f else smoothed
+        // Start the smoothing over when the shown speed came from somewhere else
+        // (approximate, car or held), so it can't blend into a false alert
+        val fresh = _speedApprox.value || _speedFromCar.value || _speedStale.value
+        val v = SpeedMath.smooth(_speedMps.value, raw, fresh)
         _speedMps.value = v
         if (v > _trip.value.maxMps) _trip.value = _trip.value.copy(maxMps = v)
         _gpsState.value = GpsState.OK
@@ -438,13 +439,14 @@ class DriveEngine(private val core: Core) {
         val loc = lastFix
         if (!s.roadLimit) {
             roadKmh = null
-        } else if (loc != null && mps != null && SystemClock.elapsedRealtime() - roadAt > 3_000L &&
-            roadJob?.isActive != true
-        ) {
+        } else if (loc != null && mps != null && SystemClock.elapsedRealtime() - roadAt > 3_000L) {
             roadAt = SystemClock.elapsedRealtime()
             val bearing = if (loc.hasBearing() && mps > 3f) loc.bearing else null
-            roadJob = core.scope.launch {
-                roadKmh = runCatching { roads.match(loc.latitude, loc.longitude, bearing) }.getOrNull()?.limitKmh
+            // Match against the roads we already have right away, so the limit never
+            // waits for (or sticks during) a download of the next area
+            roadKmh = runCatching { roads.matchNow(loc.latitude, loc.longitude, bearing) }.getOrNull()?.limitKmh
+            if (roadJob?.isActive != true && roads.needsArea(loc.latitude, loc.longitude)) {
+                roadJob = core.scope.launch { runCatching { roads.refresh(loc.latitude, loc.longitude) } }
             }
         }
         val mine = s.speedLimit
@@ -459,38 +461,20 @@ class DriveEngine(private val core: Core) {
     }
 
     private fun updateAlert(s: LauncherSettings, mps: Float?, now: Long) {
-        val testing = now < testUntil
         val limit = _limit.value.limit
-        if (!s.speedAlert || mps == null || limit == null) {
-            _overspeed.value = testing
-            episodeBeeped = false
-            spokeEpisode = false
-            return
-        }
-        val speed = speedInUnit(mps, s.useKmh)
-        val trigger = limit + s.speedMargin
-        when {
-            speed > trigger -> {
-                _overspeed.value = true
-                when (s.alertMode) {
-                    AlertMode.SCREEN -> Unit
-                    AlertMode.BEEP_ONCE -> if (!episodeBeeped) { voice.beep(); episodeBeeped = true }
-                    AlertMode.BEEP_REPEAT -> if (now - lastBeepAt >= 10_000L) { voice.beep(); lastBeepAt = now }
-                }
-                if (!spokeEpisode && s.voiceSpeed) {
-                    voice.say(R.string.voice_over_limit, limit)
-                    spokeEpisode = true
-                }
-            }
-            // Small hysteresis so hovering right at the limit doesn't flicker
-            speed < trigger - 3 -> {
-                _overspeed.value = testing
-                episodeBeeped = false
-                spokeEpisode = false
-                lastBeepAt = 0L
-            }
-            else -> if (testing) _overspeed.value = true
-        }
+        val r = alert.update(
+            enabled = s.speedAlert,
+            speed = mps?.let { speedInUnit(it, s.useKmh) },
+            limit = limit,
+            margin = s.speedMargin,
+            mode = s.alertMode,
+            speak = s.voiceSpeed,
+            testing = now < testUntil,
+            now = now
+        )
+        _overspeed.value = r.overspeed
+        if (r.beep) voice.beep()
+        if (r.speak && limit != null) voice.say(R.string.voice_over_limit, limit)
     }
 
     /** Preview from Settings: flashes the alert and plays the chosen sound once. */
@@ -506,31 +490,14 @@ class DriveEngine(private val core: Core) {
 
     private fun addCoarse(loc: Location) {
         val last = coarse.lastOrNull()
-        if (last != null && loc.elapsedRealtimeNanos <= last.elapsedRealtimeNanos) return
-        coarse.addLast(loc)
+        if (last != null && loc.elapsedRealtimeNanos <= last.tNs) return
+        coarse.addLast(ApproxSpeed.Fix(loc.elapsedRealtimeNanos, loc.latitude, loc.longitude,
+            if (loc.hasAccuracy()) loc.accuracy else null))
         val cutoff = SystemClock.elapsedRealtimeNanos() - 120_000_000_000L
-        while (coarse.isNotEmpty() && coarse.first().elapsedRealtimeNanos < cutoff) coarse.removeFirst()
+        while (coarse.isNotEmpty() && coarse.first().tNs < cutoff) coarse.removeFirst()
     }
 
-    /**
-     * Average speed between two internet positions 20–90 s apart, or null when it
-     * can't be told from position noise. 0 when clearly standing still.
-     */
-    private fun approxSpeedMps(): Float? {
-        val now = SystemClock.elapsedRealtimeNanos()
-        val last = coarse.lastOrNull() ?: return null
-        if (now - last.elapsedRealtimeNanos > 60_000_000_000L) return null
-        val first = coarse.firstOrNull {
-            val gap = last.elapsedRealtimeNanos - it.elapsedRealtimeNanos
-            gap in 20_000_000_000L..90_000_000_000L
-        } ?: return null
-        val dt = (last.elapsedRealtimeNanos - first.elapsedRealtimeNanos) / 1e9f
-        val d = first.distanceTo(last)
-        val noise = (if (first.hasAccuracy()) first.accuracy else 50f) + (if (last.hasAccuracy()) last.accuracy else 50f)
-        if (d < noise) return if (dt >= 45f && d < noise * 0.5f) 0f else null
-        val v = d / dt
-        return if (v > 70f) null else v   // over ~250 km/h is a position jump, not driving
-    }
+    private fun approxSpeedMps(): Float? = ApproxSpeed.estimate(coarse.toList(), SystemClock.elapsedRealtimeNanos())
 
     private var diagTicks = 0
     private var cachedProviders: List<String> = emptyList()
