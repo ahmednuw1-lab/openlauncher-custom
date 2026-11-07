@@ -578,7 +578,7 @@ fun PrayerCard(
 ) {
     val now = rememberNow(30_000L)
     val locale = appLocale()
-    BoxWithConstraints(modifier = modifier.glass().padding(18.dp)) {
+    BoxWithConstraints(modifier = modifier.glass().padding(horizontal = 18.dp, vertical = 12.dp)) {
         val tall = maxHeight >= 120.dp
         if (prayer == null) {
             CardMessage(Icons.Rounded.Mosque, stringResource(R.string.prayer_waiting), accent)
@@ -587,14 +587,14 @@ fun PrayerCard(
             val soon = next.at - now in 0..(30 * 60_000L)
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Mosque, null, tint = accent, modifier = Modifier.size(30.dp))
+                    Icon(Icons.Rounded.Mosque, null, tint = accent, modifier = Modifier.size(28.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.next_prayer), fontSize = 13.sp, color = TextSecondary)
+                        Text(stringResource(R.string.next_prayer), fontSize = 12.sp, color = TextSecondary, lineHeight = 14.sp)
                         Row(verticalAlignment = Alignment.Bottom) {
-                            Text(stringResource(prayerName(next.prayer)), fontSize = 24.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(prayerName(next.prayer)), fontSize = 22.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold, lineHeight = 26.sp)
                             Spacer(Modifier.width(10.dp))
-                            Text(formatTime(next.at, use24h, locale), fontSize = 22.sp, color = TextPrimary, fontWeight = FontWeight.Light)
+                            Text(formatTime(next.at, use24h, locale), fontSize = 20.sp, color = TextPrimary, fontWeight = FontWeight.Light, lineHeight = 26.sp)
                         }
                     }
                     Text(countdown(next.at - now), fontSize = 14.sp, color = if (soon) accent else TextSecondary)
