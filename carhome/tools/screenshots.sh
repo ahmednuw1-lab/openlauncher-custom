@@ -5,6 +5,7 @@ set -x
 PKG=com.carhome.launcher
 OUT=shots
 mkdir -p "$OUT"
+shot() { adb exec-out screencap -p > "$OUT/$1.png"; }
 
 adb wait-for-device
 adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
@@ -26,62 +27,126 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell pm grant $PKG android.permission.ACCESS_FINE_LOCATION
 adb shell pm grant $PKG android.permission.ACCESS_COARSE_LOCATION
 adb shell cmd notification allow_listener $PKG/$PKG.MediaService || true
+adb shell appops set $PKG SYSTEM_ALERT_WINDOW allow || true
 
-# Fill 7 tiles with apps that exist on the emulator (8th left empty to show "Add app")
-APPS=$(adb shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
+# Apps that exist on the emulator
+ALL=$(adb shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
   | tr -d '\r' | grep '/' | cut -d/ -f1 | sed 's/^ *//' | sort -u \
   | grep -E 'chrome|youtube|maps|photos|gm$|messaging|dialer|calendar|camera|deskclock|music|settings' \
-  | grep -v carhome | head -7 | tr '\n' '|')
-echo "Tiles: $APPS"
-cat > /tmp/carhome.xml <<EOF
+  | grep -v carhome)
+APPS7=$(echo "$ALL" | head -7 | tr '\n' '|')
+APPS6=$(echo "$ALL" | head -6 | tr '\n' '|')
+SMART_APP=$(echo "$ALL" | sed -n 8p)
+[ -z "$SMART_APP" ] && SMART_APP=$(echo "$ALL" | tail -1)
+BOOT=$(adb shell settings get global boot_count | tr -d '\r')
+echo "Tiles: $APPS7  smart: $SMART_APP  boot: $BOOT"
+
+# Writes CarHome's saved state. $1 = settings JSON, $2 = tiles, $3 = boot count seen
+prefs() {
+  cat > /tmp/carhome.xml <<EOF
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
-    <string name="tiles">${APPS}</string>
-    <int name="tile_count" value="8" />
+    <string name="settings">$1</string>
+    <string name="tiles">$2</string>
+    <string name="places">[{"id":"home1","name":"Home","address":"","lat":25.3990,"lon":49.5800}]</string>
     <boolean name="asked_location" value="true" />
+    <int name="boot_count" value="$3" />
+    <string name="trip">{"start":0,"dist":23400,"moving":1680000,"max":33.5,"harsh":2}</string>
+    <string name="last_trip">{"start":0,"dist":12800,"moving":960000,"max":27.0,"harsh":0}</string>
+    <string name="launches">{"$SMART_APP":[9,9,9,9,9,9,9,9]}</string>
+    <string name="odometer_km">10450.0</string>
+    <string name="oil_at_km">2000.0</string>
 </map>
 EOF
-adb push /tmp/carhome.xml /data/local/tmp/carhome.xml
-adb shell "run-as $PKG mkdir -p shared_prefs"
-adb shell "run-as $PKG cp /data/local/tmp/carhome.xml shared_prefs/carhome.xml"
+  adb shell am force-stop $PKG
+  adb push /tmp/carhome.xml /data/local/tmp/carhome.xml
+  adb shell "run-as $PKG mkdir -p shared_prefs"
+  adb shell "run-as $PKG cp /data/local/tmp/carhome.xml shared_prefs/carhome.xml"
+}
+start() { adb shell am start -n $PKG/.MainActivity; }
+# Emulator "geo fix <lon> <lat> <alt> <satellites> <velocity-knots>"; 70 knots ≈ 130 km/h
+drive() { for i in $(seq 1 "$1"); do adb emu geo fix 49.59$((10 + i)) 25.3833 150 8 70; sleep 1; done; }
+park() { for i in 1 2 3; do adb emu geo fix 49.5920 25.3833 150 8 0; sleep 1; done; }
 
-# Al-Ahsa (Hofuf) — so the weather is real for your area
+DEFAULTS='{"tileCount":8}'
+CUSTOM='{"tileCount":8,"cards":["CLOCK","SPEED","PRAYER","TRIP"],"showWeather":true,"showHijri":true,"background":"SKY","placeTiles":true,"smartTile":true,"driveScore":true,"fuelCost":true,"oilReminder":true}'
+CTILES="${APPS6}place:home1|smart"
+
+# Al-Ahsa (Hofuf) — so weather and prayer times are real for your area
 adb emu geo fix 49.5886 25.3833
-adb shell am start -n $PKG/.MainActivity
+
+# 1–2: the default look (same as 1.1), then over the speed limit
+prefs "$DEFAULTS" "$APPS7" "$BOOT"
+start
 sleep 4
 adb emu geo fix 49.5887 25.3834
-sleep 14   # let the weather download
-adb exec-out screencap -p > "$OUT/1-home.png"
-
-# Simulate driving: emulator "geo fix <lon> <lat> <alt> <satellites> <velocity-knots>"
-# 70 knots ≈ 130 km/h — over the default 120 limit, so the alert shows
-for i in 1 2 3 4 5 6 7; do
-  adb emu geo fix 49.59$((10 + i)) 25.3833 150 8 70
-  sleep 1
-done
-adb exec-out screencap -p > "$OUT/2-home-speed-alert.png"
-for i in 1 2 3; do adb emu geo fix 49.5920 25.3833 150 8 0; sleep 1; done
+sleep 14
+shot 1-home
+drive 7
+shot 2-home-speed-alert
+park
 sleep 3
 
-# Settings page (Settings button: top-right corner)
+# 3: customised home — clock with Hijri date, speed, prayer and trip cards, living sky, place and smart tiles
+prefs "$CUSTOM" "$CTILES" "$BOOT"
+start
+sleep 4
+adb emu geo fix 49.5886 25.3833
+sleep 14
+shot 3-home-custom
+
+# 4: floating speed bubble over another app while over the limit
+prefs "${CUSTOM%\}},\"bubble\":true,\"bubbleSize\":\"LARGE\"}" "$CTILES" "$BOOT"
+start
+sleep 6
+drive 5
+adb shell am start -a android.settings.SETTINGS
+drive 4
+shot 4-bubble-over-app
+park
+start
+sleep 3
+
+# 5–8: Settings pages (side menu items are 60 px apart, first at y=130)
 adb shell input tap 1232 48
 sleep 2
-adb exec-out screencap -p > "$OUT/3-settings.png"
+shot 5-settings-home
+adb shell input tap 145 190
+sleep 2
+shot 6-settings-speed
+adb shell input tap 145 250
+sleep 2
+shot 7-settings-prayer
+adb shell input tap 145 490
+sleep 2
+shot 8-settings-smart
 adb shell input keyevent KEYCODE_BACK
-sleep 2
+sleep 1
 
-# All apps page (button left of Settings)
-adb shell input tap 1164 48
+# 9: welcome screen (a changed boot count looks like the car just started)
+prefs "${CUSTOM%\}},\"welcome\":true,\"welcomeName\":\"Ahmed\"}" "$CTILES" "-5"
+start
 sleep 2
-adb exec-out screencap -p > "$OUT/4-all-apps.png"
-adb shell input keyevent KEYCODE_BACK
-sleep 2
+shot 9-welcome
+sleep 6
 
-# Arabic (per-app language, Android 13+)
+# 10: parked screen after 2 minutes without touching
+prefs "${CUSTOM%\}},\"parkedScreen\":true,\"parkedAfterMin\":2}" "$CTILES" "$BOOT"
+start
+sleep 135
+shot 10-parked
+
+# 11: Arabic (per-app language, Android 13+)
 adb shell cmd locale set-app-locales $PKG --locales ar || true
-adb shell am force-stop $PKG
-adb shell am start -n $PKG/.MainActivity
-sleep 12
-adb exec-out screencap -p > "$OUT/5-home-arabic.png"
+prefs "$CUSTOM" "$CTILES" "$BOOT"
+start
+sleep 14
+shot 11-home-arabic
+adb shell input tap 48 48
+sleep 2
+shot 12-settings-arabic
 
+# Crash and CarHome log lines, to catch problems a screenshot can't show
+adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+adb logcat -d | grep -E "AndroidRuntime|CarHome|carhome" | tail -300 > "$OUT/app-log.txt" || true
 ls -la "$OUT"
