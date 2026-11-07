@@ -61,6 +61,7 @@ prefs() {
     <string name="launches">{"$SMART_APP":[9,9,9,9,9,9,9,9]}</string>
     <string name="odometer_km">10450.0</string>
     <string name="oil_at_km">2000.0</string>
+$4
 </map>
 EOF
   adb shell am force-stop $PKG
@@ -163,6 +164,51 @@ shot 13-short-screen-arabic
 drive 6
 shot 14-short-screen-speed
 park
+
+# 15–19: 1.2.10 screens, back on the normal screen in English
+adb shell wm size reset
+adb shell wm density reset
+adb shell cmd locale set-app-locales $PKG --locales en || true
+NOW=$(date +%s%3N)
+DAY=86400000
+TODAY0=$(( NOW / DAY * DAY ))
+HIST="[{\"s\":$((NOW-DAY-1800000)),\"e\":$((NOW-DAY)),\"d\":23400,\"m\":1680000,\"x\":33.5,\"h\":2},{\"s\":$((NOW-3*DAY-900000)),\"e\":$((NOW-3*DAY)),\"d\":12800,\"m\":960000,\"x\":27.0,\"h\":0},{\"s\":$((NOW-20*DAY-3600000)),\"e\":$((NOW-20*DAY)),\"d\":81000,\"m\":3300000,\"x\":36.0,\"h\":1}]"
+REMS="[{\"id\":\"r1\",\"type\":\"INSURANCE\",\"name\":\"\",\"date\":$((TODAY0+12*DAY))},{\"id\":\"r2\",\"type\":\"TYRES\",\"name\":\"\",\"km\":10750.0},{\"id\":\"r3\",\"type\":\"REGISTRATION\",\"name\":\"\",\"date\":$((TODAY0+200*DAY))}]"
+EXTRA="<string name=\"trip_history\">$HIST</string><string name=\"car_reminders\">$REMS</string><string name=\"tiles2\">$APPS7</string>"
+
+# 15: "What's new" after an update from 1.2.9 (version code 12)
+prefs "$CUSTOM" "$CTILES" "$BOOT" "$EXTRA<int name=\"last_version_code\" value=\"12\" />"
+start
+sleep 5
+shot 15-whats-new
+adb shell input keyevent KEYCODE_BACK
+adb shell input tap 640 690
+sleep 1
+
+# 16–17: reminder banner on the home screen, then the second tile page
+prefs "${CUSTOM%\}},\"secondPage\":true}" "$CTILES" "$BOOT" "$EXTRA<int name=\"last_version_code\" value=\"13\" />"
+park
+start
+sleep 6
+shot 16-home-reminder-pages
+adb shell input swipe 1100 380 560 380 250
+sleep 2
+shot 17-home-second-page
+
+# 18–19: Trip and car settings (reminders, trip history), then Updates and Backup
+adb shell input tap 1232 48
+sleep 2
+adb shell input tap 145 310
+sleep 2
+for i in 1 2 3 4 5 6; do adb shell input swipe 800 620 800 140 250; sleep 0.4; done
+sleep 1
+shot 18-settings-reminders-history
+adb shell input tap 145 550
+sleep 2
+for i in 1 2 3 4; do adb shell input swipe 800 620 800 140 250; sleep 0.4; done
+sleep 1
+shot 19-settings-updates-backup
+adb shell input keyevent KEYCODE_BACK
 
 # Crash and CarHome log lines, to catch problems a screenshot can't show
 adb logcat -d -b crash > "$OUT/crash-log.txt" || true
