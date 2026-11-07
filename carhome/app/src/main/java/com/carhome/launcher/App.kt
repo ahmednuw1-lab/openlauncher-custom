@@ -76,13 +76,17 @@ class Core(val app: Application) {
     }
 
     /** Context whose strings follow the chosen language (for voice and notifications). */
+    private var localizedTag: String? = null
+    private var localizedCtx: Context? = null
+
     fun localized(): Context {
         val tag = _settings.value.language.tag ?: return app
+        localizedCtx?.let { if (localizedTag == tag) return it }
         val cfg = Configuration(app.resources.configuration)
         val loc = Locale.forLanguageTag(tag)
         cfg.setLocale(loc)
         cfg.setLayoutDirection(loc)
-        return app.createConfigurationContext(cfg)
+        return app.createConfigurationContext(cfg).also { localizedCtx = it; localizedTag = tag }
     }
 
     // ── Car start detection ─────────────────────────────────────────────────

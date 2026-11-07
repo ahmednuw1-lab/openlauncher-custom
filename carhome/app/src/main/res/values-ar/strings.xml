@@ -310,7 +310,7 @@
     <string name="trip_started">بدأت رحلة جديدة</string>
     <string name="unit_kmh">السرعة بالكيلومتر</string>
     <string name="unit_kmh_hint">عند الإيقاف تظهر بالميل</string>
-    <string name="version_line">CarHome 1.2.4</string>
+    <string name="version_line">CarHome 1.2.5</string>
     <string name="voice">التنبيهات الصوتية</string>
     <string name="voice_break">حان وقت الاستراحة</string>
     <string name="voice_dust">يُتوقع غبار. قد بحذر</string>
@@ -371,4 +371,6 @@
     <string name="gps_approx">السرعة التقريبية (إنترنت)</string>
     <string name="gps_in_use">مستخدمة</string>
     <string name="gps_not_in_use">غير مستخدمة</string>
+    <string name="bg_notice">التنبيه والرحلة والكيلومترات تُحسب فقط وCarHome ظاهر على الشاشة. فعّل التتبع في الخلفية عشان تشتغل فوق الخرائط وCarPlay.</string>
+    <string name="turn_on">تفعيل</string>
 </resources>

@@ -468,6 +468,7 @@ private fun SpeedPage(st: SettingsState, act: SettingsActions) {
     }
     Section(stringResource(R.string.speed_alert)) {
         Toggle(stringResource(R.string.speed_alert_on), s.speedAlert, a) { v -> act.update { it.copy(speedAlert = v) } }
+        if (s.speedAlert) BackgroundNotice(st, act)
         Stepper(
             stringResource(R.string.speed_limit), "${s.speedLimit} $unit",
             onMinus = { act.update { it.copy(speedLimit = (it.speedLimit - 5).coerceAtLeast(SPEED_LIMIT_MIN)) } },
@@ -517,6 +518,25 @@ private fun SpeedPage(st: SettingsState, act: SettingsActions) {
         Hint(stringResource(R.string.speed_volume_hint))
         Chips(null, listOf(stringResource(R.string.off), stringResource(R.string.low), stringResource(R.string.medium), stringResource(R.string.high)), VolumeBoost.entries.indexOf(s.speedVolume), a) { i ->
             act.update { it.copy(speedVolume = VolumeBoost.entries[i]) }
+        }
+    }
+}
+
+/** Shown where a feature needs CarHome running behind other apps to keep working. */
+@Composable
+private fun BackgroundNotice(st: SettingsState, act: SettingsActions) {
+    if (st.settings.backgroundTracking) return
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(WarnAmber.copy(alpha = 0.12f)).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Rounded.Warning, null, tint = WarnAmber, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(stringResource(R.string.bg_notice), fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(10.dp))
+        ActionButton(stringResource(R.string.turn_on), st.accent, filled = true) {
+            act.update { it.copy(backgroundTracking = true) }
+            if (!st.hasNotifications) act.notificationAccess()
         }
     }
 }
@@ -610,6 +630,7 @@ private fun TripPage(st: SettingsState, act: SettingsActions) {
         Chips(stringResource(R.string.trip_reset), listOf(stringResource(R.string.trip_each_start), stringResource(R.string.trip_manual)), TripReset.entries.indexOf(s.tripReset), a) { i ->
             act.update { it.copy(tripReset = TripReset.entries[i]) }
         }
+        BackgroundNotice(st, act)
         ActionButton(stringResource(R.string.new_trip), a, onClick = act.newTrip)
         Toggle(stringResource(R.string.drive_score), s.driveScore, a, stringResource(R.string.drive_score_hint)) { v -> act.update { it.copy(driveScore = v) } }
         if (s.driveScore) ScoreTrend(st.scores)

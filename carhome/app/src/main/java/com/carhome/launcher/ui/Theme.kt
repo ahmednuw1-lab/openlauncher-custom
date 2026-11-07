@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -138,11 +139,17 @@ fun LivingSky(sun: Pair<Long, Long>?, weatherCode: Int?, dust: Boolean) {
     LaunchedEffect(Unit) {
         val start = System.nanoTime()
         var lastMinute = 0L
+        var lastFrame = 0L
         while (true) {
-            t = (System.nanoTime() - start) / 1e9f
-            val ms = System.currentTimeMillis()
-            if (ms - lastMinute > 60_000L) { now = ms; lastMinute = ms }
-            delay(50)
+            // Frame clock: pauses by itself while CarHome isn't on screen; ~20 fps is plenty
+            withFrameNanos { frame ->
+                if (frame - lastFrame >= 50_000_000L) {
+                    lastFrame = frame
+                    t = (System.nanoTime() - start) / 1e9f
+                    val ms = System.currentTimeMillis()
+                    if (ms - lastMinute > 60_000L) { now = ms; lastMinute = ms }
+                }
+            }
         }
     }
     val rng = remember { Random(7) }

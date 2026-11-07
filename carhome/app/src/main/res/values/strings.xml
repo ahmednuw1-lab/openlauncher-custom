@@ -310,7 +310,7 @@
     <string name="trip_started">New trip started</string>
     <string name="unit_kmh">Speed in km/h</string>
     <string name="unit_kmh_hint">Off shows mph</string>
-    <string name="version_line">CarHome 1.2.4</string>
+    <string name="version_line">CarHome 1.2.5</string>
     <string name="voice">Spoken alerts</string>
     <string name="voice_break">Time for a break</string>
     <string name="voice_dust">Dust is expected. Drive carefully</string>
@@ -371,4 +371,6 @@
     <string name="gps_approx">Approximate speed (internet)</string>
     <string name="gps_in_use">In use</string>
     <string name="gps_not_in_use">Not in use</string>
+    <string name="bg_notice">The alert, trip and kilometres only count while CarHome is on screen. Turn on background tracking to keep them working over Maps and CarPlay.</string>
+    <string name="turn_on">Turn on</string>
 </resources>

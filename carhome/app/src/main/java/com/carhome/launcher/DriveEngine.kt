@@ -283,19 +283,19 @@ class DriveEngine(private val core: Core) {
         val isGps = loc.provider == LocationManager.GPS_PROVIDER
         // GPS wins: other sources are only used when GPS has been quiet for 3 s
         if (!isGps && lastGpsFixAt > 0 && now - lastGpsFixAt < 3_000L) return
-        val accurate = !loc.hasAccuracy() || loc.accuracy <= 25f
-        // Wi-Fi/cell positions can't give a speed; keep them for weather and prayer only
-        if (!loc.hasSpeed() && !accurate) {
-            addCoarse(loc)
-            _location.value = loc
-            return
-        }
-        // First accurate fix from a chip that reports no speed: keep it to work speed out from the next one
-        if (!loc.hasSpeed() && prev == null) {
-            lastFix = loc
-            lastFixAt = now
-            _location.value = loc
-            return
+        // Positions without a measured speed only give a speed when they're precise
+        // (±10 m) and about a second or more apart; otherwise ±25 m of error could read
+        // as 90 km/h. Imprecise ones still count toward the slower internet estimate.
+        if (!loc.hasSpeed()) {
+            val dtS = if (prev != null) (loc.time - prev.time) / 1000f else 0f
+            val tight = (!loc.hasAccuracy() || loc.accuracy <= 10f) &&
+                (prev == null || !prev.hasAccuracy() || prev.accuracy <= 10f)
+            if (!tight || prev == null || dtS < 0.9f || dtS > 10f) {
+                addCoarse(loc)
+                _location.value = loc
+                if (tight && prev == null) { lastFix = loc; lastFixAt = now }   // anchor for the next fix
+                return
+            }
         }
         if (isGps) lastGpsFixAt = now
         if (usingCar) {
@@ -344,6 +344,7 @@ class DriveEngine(private val core: Core) {
         if (v > _trip.value.maxMps) _trip.value = _trip.value.copy(maxMps = v)
         _gpsState.value = GpsState.OK
         _location.value = loc
+        addCoarse(loc)
     }
 
     private fun addDistance(m: Double) {
@@ -410,7 +411,7 @@ class DriveEngine(private val core: Core) {
         val kmh = (mps ?: 0f) * 3.6f
         _moving.value = if (_moving.value) kmh >= 5f else kmh >= 8f
 
-        if (mps != null && mps >= 1.5f) _trip.value = _trip.value.copy(movingMs = _trip.value.movingMs + 1_000L)
+        if (mps != null && mps >= 1.5f && !_speedApprox.value) _trip.value = _trip.value.copy(movingMs = _trip.value.movingMs + 1_000L)
 
         // Continuous driving for the break reminder; 10 min stopped counts as a break
         if (mps != null && mps >= 2.5f) {
@@ -531,13 +532,21 @@ class DriveEngine(private val core: Core) {
         return if (v > 70f) null else v   // over ~250 km/h is a position jump, not driving
     }
 
+    private var diagTicks = 0
+    private var cachedProviders: List<String> = emptyList()
+    private var cachedHasGps = false
+
     private fun updateDiag(now: Long, carFresh: Boolean) {
-        val all = runCatching { lm.allProviders }.getOrDefault(emptyList())
+        if (diagTicks++ % 5 == 0) {
+            val all = runCatching { lm.allProviders }.getOrDefault(emptyList())
+            cachedHasGps = LocationManager.GPS_PROVIDER in all
+            cachedProviders = all.filter { p -> runCatching { lm.isProviderEnabled(p) }.getOrDefault(false) }
+        }
         val f = lastFix
         _diag.value = GpsDiag(
             locationOn = locationEnabled(),
-            hasGpsChip = LocationManager.GPS_PROVIDER in all,
-            providers = all.filter { p -> runCatching { lm.isProviderEnabled(p) }.getOrDefault(false) },
+            hasGpsChip = cachedHasGps,
+            providers = cachedProviders,
             satellitesSeen = _satellites.value.first,
             satellitesUsed = _satellites.value.second,
             lastFixSecondsAgo = if (f != null && lastFixAt > 0) (now - lastFixAt) / 1000 else null,

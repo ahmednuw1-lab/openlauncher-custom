@@ -59,10 +59,14 @@ class RoadLimits {
         return nearest(lat, lon, bearing)
     }
 
-    private suspend fun download(lat: Double, lon: Double): List<Way>? = withContext(Dispatchers.IO) {
+    private suspend fun download(exactLat: Double, exactLon: Double): List<Way>? = withContext(Dispatchers.IO) {
         runCatching {
+            // Send a position rounded to ~100 m (and ask for a wider area), so the map
+            // server never sees the car's exact track; matching uses the exact GPS locally
+            val lat = Math.round(exactLat * 1000.0) / 1000.0
+            val lon = Math.round(exactLon * 1000.0) / 1000.0
             val q = "[out:json][timeout:15];" +
-                "way(around:500,$lat,$lon)[\"highway\"~\"^(motorway|trunk|primary|secondary|tertiary|" +
+                "way(around:650,$lat,$lon)[\"highway\"~\"^(motorway|trunk|primary|secondary|tertiary|" +
                 "unclassified|residential|living_street|service|road|motorway_link|trunk_link|" +
                 "primary_link|secondary_link|tertiary_link)$\"];out geom qt;"
             val conn = URL("https://overpass-api.de/api/interpreter").openConnection() as HttpURLConnection

@@ -68,7 +68,7 @@ suspend fun fetchWeather(lat: Double, lon: Double): WeatherInfo? = withContext(D
         val body = httpGet(
             String.format(
                 Locale.US,
-                "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f" +
+                "https://api.open-meteo.com/v1/forecast?latitude=%.2f&longitude=%.2f" +
                     "&current_weather=true&hourly=temperature_2m,weather_code,is_day,visibility" +
                     "&forecast_days=2&timezone=auto",
                 lat, lon
@@ -96,7 +96,7 @@ suspend fun fetchDustInHours(lat: Double, lon: Double): Int? = withContext(Dispa
         val body = httpGet(
             String.format(
                 Locale.US,
-                "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%.4f&longitude=%.4f" +
+                "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%.2f&longitude=%.2f" +
                     "&hourly=dust&forecast_days=2&timezone=auto",
                 lat, lon
             )
