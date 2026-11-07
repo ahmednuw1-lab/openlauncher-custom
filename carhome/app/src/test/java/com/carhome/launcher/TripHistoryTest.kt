@@ -1,17 +1,20 @@
 package com.carhome.launcher
 
-import org.junit.After
+import org.junit.AfterClass
 import org.junit.Assert.assertEquals
-import org.junit.Before
+import org.junit.BeforeClass
 import org.junit.Test
 import java.util.Calendar
 import java.util.TimeZone
 
 class TripHistoryTest {
 
-    private lateinit var savedTz: TimeZone
-    @Before fun setUp() { savedTz = TimeZone.getDefault(); TimeZone.setDefault(TimeZone.getTimeZone("Asia/Riyadh")) }
-    @After fun tearDown() = TimeZone.setDefault(savedTz)
+    // Saudi time before the test values below are worked out (the build machine runs on UTC)
+    companion object {
+        private lateinit var savedTz: TimeZone
+        @JvmStatic @BeforeClass fun setUp() { savedTz = TimeZone.getDefault(); TimeZone.setDefault(TimeZone.getTimeZone("Asia/Riyadh")) }
+        @JvmStatic @AfterClass fun tearDown() = TimeZone.setDefault(savedTz)
+    }
 
     private val day = 86_400_000L
     private fun at(y: Int, m: Int, d: Int, h: Int = 12) =
