@@ -8,7 +8,10 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.media.AudioManager
+import android.location.GnssStatus
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import kotlinx.coroutines.Job
@@ -19,7 +22,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-enum class GpsState { NO_PERMISSION, NO_HARDWARE, SEARCHING, OK }
+enum class GpsState { NO_PERMISSION, LOCATION_OFF, NO_HARDWARE, SEARCHING, OK }
+
+/** What the GPS status page in Settings shows, refreshed every second. */
+data class GpsDiag(
+    val locationOn: Boolean = true,
+    val hasGpsChip: Boolean = false,
+    val providers: List<String> = emptyList(),
+    val satellitesSeen: Int = 0,
+    val satellitesUsed: Int = 0,
+    val lastFixSecondsAgo: Long? = null,
+    val lastFixProvider: String? = null,
+    val lastFixAccuracy: Int? = null,
+    val carSpeed: Boolean = false
+)
 
 /** Converts metres/second to the user's unit. */
 fun speedInUnit(mps: Float, useKmh: Boolean): Float = if (useKmh) mps * 3.6f else mps * 2.23694f
@@ -39,6 +55,10 @@ data class LimitInfo(val limit: Int?, val roadLimit: Int?, val fromRoad: Boolean
  * one is attached.
  */
 class DriveEngine(private val core: Core) {
+
+    private companion object {
+        const val FUSED = "fused"   // LocationManager.FUSED_PROVIDER (Android 12+)
+    }
 
     private val app = core.app
     private val voice = core.voice
@@ -83,7 +103,22 @@ class DriveEngine(private val core: Core) {
     /** True above ~8 km/h (drops back below 5 km/h). */
     val moving: StateFlow<Boolean> = _moving.asStateFlow()
 
+    private val _speedFromCar = MutableStateFlow(false)
+    /** True while the speed shown comes from the car (OBD adapter), not GPS. */
+    val speedFromCar: StateFlow<Boolean> = _speedFromCar.asStateFlow()
+
+    private val _satellites = MutableStateFlow(0 to 0)
+    /** Satellites seen, and used in the position fix. */
+    val satellites: StateFlow<Pair<Int, Int>> = _satellites.asStateFlow()
+
+    private val _diag = MutableStateFlow(GpsDiag())
+    val diag: StateFlow<GpsDiag> = _diag.asStateFlow()
+
     private val owners = mutableSetOf<String>()
+    private val speedProviders = mutableListOf<String>()
+    private var gnssOn = false
+    private var lastGpsFixAt = 0L
+    private var usingCar = false
     private var gpsOn = false
     private var netOn = false
     private var lastFix: Location? = null
@@ -144,19 +179,57 @@ class DriveEngine(private val core: Core) {
                 lm.requestLocationUpdates(net, 10 * 60_000L, 500f, netListener, Looper.getMainLooper())
             }.isSuccess
         }
-        if (gpsOn) return
         if (!hasFine()) { _gpsState.value = GpsState.NO_PERMISSION; return }
-        val hasGps = runCatching { lm.allProviders.contains(LocationManager.GPS_PROVIDER) }.getOrDefault(false)
-        if (!hasGps) { _gpsState.value = GpsState.NO_HARDWARE; return }
-        gpsOn = runCatching {
-            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1_000L, 0f, gpsListener, Looper.getMainLooper())
-        }.isSuccess
-        if (gpsOn && _gpsState.value != GpsState.OK) _gpsState.value = GpsState.SEARCHING
+        registerGnss()
+        if (gpsOn) return
+        val all = runCatching { lm.allProviders }.getOrDefault(emptyList())
+        // GPS first. "fused" and "passive" also carry positions the box gets in other
+        // ways — some CarPlay boxes pass on the car's own GPS like this.
+        speedProviders.clear()
+        listOf(LocationManager.GPS_PROVIDER, FUSED, LocationManager.PASSIVE_PROVIDER).filter { it in all }.forEach { p ->
+            val ok = runCatching {
+                lm.requestLocationUpdates(p, 1_000L, 0f, gpsListener, Looper.getMainLooper())
+            }.isSuccess
+            if (ok) speedProviders += p
+        }
+        gpsOn = speedProviders.isNotEmpty()
+        val chip = LocationManager.GPS_PROVIDER in all || FUSED in all
+        if (_gpsState.value != GpsState.OK) {
+            _gpsState.value = when {
+                !locationEnabled() -> GpsState.LOCATION_OFF
+                !chip -> GpsState.NO_HARDWARE
+                else -> GpsState.SEARCHING
+            }
+        }
+    }
+
+    /** Android's main Location switch (Settings → Location). */
+    fun locationEnabled(): Boolean = runCatching {
+        if (Build.VERSION.SDK_INT >= 28) lm.isLocationEnabled
+        else lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }.getOrDefault(true)
+
+    private val gnssCallback = object : GnssStatus.Callback() {
+        override fun onSatelliteStatusChanged(status: GnssStatus) {
+            var used = 0
+            for (i in 0 until status.satelliteCount) if (status.usedInFix(i)) used++
+            _satellites.value = status.satelliteCount to used
+        }
+        override fun onStopped() { _satellites.value = 0 to 0 }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun registerGnss() {
+        if (gnssOn || !hasFine()) return
+        gnssOn = runCatching { lm.registerGnssStatusCallback(gnssCallback, Handler(Looper.getMainLooper())) }.getOrDefault(false)
     }
 
     private fun stopListening() {
         if (gpsOn) runCatching { lm.removeUpdates(gpsListener) }
         if (netOn) runCatching { lm.removeUpdates(netListener) }
+        if (gnssOn) runCatching { lm.unregisterGnssStatusCallback(gnssCallback) }
+        gnssOn = false
+        _satellites.value = 0 to 0
         gpsOn = false
         netOn = false
         lastFix = null
@@ -174,8 +247,10 @@ class DriveEngine(private val core: Core) {
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
         override fun onProviderEnabled(provider: String) {}
         override fun onProviderDisabled(provider: String) {
-            _speedMps.value = null
-            _gpsState.value = GpsState.SEARCHING
+            if (provider == LocationManager.GPS_PROVIDER && !usingCar) {
+                _speedMps.value = null
+                _gpsState.value = if (locationEnabled()) GpsState.SEARCHING else GpsState.LOCATION_OFF
+            }
         }
     }
 
@@ -192,6 +267,32 @@ class DriveEngine(private val core: Core) {
     private fun onFix(loc: Location) {
         val now = SystemClock.elapsedRealtime()
         val prev = lastFix
+        // "passive" repeats fixes other sources already delivered
+        if (prev != null && loc.time <= prev.time) return
+        val isGps = loc.provider == LocationManager.GPS_PROVIDER
+        // GPS wins: other sources are only used when GPS has been quiet for 3 s
+        if (!isGps && lastGpsFixAt > 0 && now - lastGpsFixAt < 3_000L) return
+        val accurate = !loc.hasAccuracy() || loc.accuracy <= 25f
+        // Wi-Fi/cell positions can't give a speed; keep them for weather and prayer only
+        if (!loc.hasSpeed() && !accurate) {
+            _location.value = loc
+            return
+        }
+        // First accurate fix from a chip that reports no speed: keep it to work speed out from the next one
+        if (!loc.hasSpeed() && prev == null) {
+            lastFix = loc
+            lastFixAt = now
+            _location.value = loc
+            return
+        }
+        if (isGps) lastGpsFixAt = now
+        if (usingCar) {
+            // Speed comes from the car; GPS only updates the position
+            lastFix = loc
+            lastFixAt = now
+            _location.value = loc
+            return
+        }
         val raw = when {
             loc.hasSpeed() -> loc.speed
             // Some GPS chips report no speed: derive it from consecutive fixes
@@ -244,12 +345,36 @@ class DriveEngine(private val core: Core) {
         val s = core.settings.value
         val now = SystemClock.elapsedRealtime()
 
+        // Speed from the car (OBD adapter): always with "Car", or when GPS is silent with "Automatic"
+        val obd = core.obd.data.value
+        val carFresh = core.obd.status.value == ObdStatus.CONNECTED && obd.speedKmh != null && now - obd.at < 4_000L
+        val gpsFresh = lastFixAt > 0 && now - lastFixAt <= 6_000L && lastFix?.let { it.hasSpeed() || it.accuracy <= 25f } == true
+        usingCar = carFresh && (s.speedSource == SpeedSource.CAR || (s.speedSource == SpeedSource.AUTO && !gpsFresh))
+        if (usingCar) {
+            val v = (obd.speedKmh ?: 0) / 3.6f
+            _speedMps.value = v
+            if (v > 0.5f) addDistance(v.toDouble())   // one second at this speed
+            if (v > _trip.value.maxMps) _trip.value = _trip.value.copy(maxMps = v)
+            _gpsState.value = GpsState.OK
+        } else if (s.speedSource == SpeedSource.CAR || (!gpsFresh && _speedFromCar.value)) {
+            _speedMps.value = null
+            if (_gpsState.value == GpsState.OK) _gpsState.value = GpsState.SEARCHING
+        }
+        _speedFromCar.value = usingCar
+
         // A fix older than 6 s means GPS lost — show "waiting" instead of a stale number
-        if (gpsOn && lastFixAt > 0 && now - lastFixAt > 6_000L) {
+        if (!usingCar && gpsOn && lastFixAt > 0 && now - lastFixAt > 6_000L) {
             if (_speedMps.value != null) _speedMps.value = null
             if (_gpsState.value == GpsState.OK) _gpsState.value = GpsState.SEARCHING
             prevSample = null
         }
+        // The main Location switch turned off (or back on) while CarHome runs
+        if (!usingCar && hasFine()) {
+            val on = locationEnabled()
+            if (!on && _gpsState.value != GpsState.LOCATION_OFF) { _gpsState.value = GpsState.LOCATION_OFF; _speedMps.value = null }
+            if (on && _gpsState.value == GpsState.LOCATION_OFF) _gpsState.value = GpsState.SEARCHING
+        }
+        if (owners.isNotEmpty()) updateDiag(now, carFresh)
         val mps = _speedMps.value
         val kmh = (mps ?: 0f) * 3.6f
         _moving.value = if (_moving.value) kmh >= 5f else kmh >= 8f
@@ -343,6 +468,22 @@ class DriveEngine(private val core: Core) {
         _overspeed.value = true
         if (s.alertMode != AlertMode.SCREEN) voice.beep()
         if (s.voiceSpeed) voice.say(R.string.voice_over_limit, s.speedLimit)
+    }
+
+    private fun updateDiag(now: Long, carFresh: Boolean) {
+        val all = runCatching { lm.allProviders }.getOrDefault(emptyList())
+        val f = lastFix
+        _diag.value = GpsDiag(
+            locationOn = locationEnabled(),
+            hasGpsChip = LocationManager.GPS_PROVIDER in all,
+            providers = all.filter { p -> runCatching { lm.isProviderEnabled(p) }.getOrDefault(false) },
+            satellitesSeen = _satellites.value.first,
+            satellitesUsed = _satellites.value.second,
+            lastFixSecondsAgo = if (f != null && lastFixAt > 0) (now - lastFixAt) / 1000 else null,
+            lastFixProvider = f?.provider,
+            lastFixAccuracy = f?.takeIf { it.hasAccuracy() }?.accuracy?.roundToInt(),
+            carSpeed = carFresh
+        )
     }
 
     // ── Speed-sensitive volume ──────────────────────────────────────────────

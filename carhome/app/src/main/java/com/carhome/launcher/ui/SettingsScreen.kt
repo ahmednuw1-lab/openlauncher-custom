@@ -79,6 +79,8 @@ import com.carhome.launcher.CardType
 import com.carhome.launcher.ColumnWidth
 import com.carhome.launcher.DRIVING_SPEEDS
 import com.carhome.launcher.DayScore
+import com.carhome.launcher.GpsDiag
+import com.carhome.launcher.SpeedSource
 import com.carhome.launcher.LauncherSettings
 import com.carhome.launcher.MAX_CARDS
 import com.carhome.launcher.NIGHT_DIMS
@@ -129,7 +131,8 @@ data class SettingsState(
     val pairedDevices: List<PairedDevice>,
     val scores: List<DayScore>,
     val prayer: PrayerInfo?,
-    val parkedOnly: Set<String>
+    val parkedOnly: Set<String>,
+    val gps: GpsDiag
 )
 
 class SettingsActions(
@@ -139,6 +142,7 @@ class SettingsActions(
     val setDefaultHome: () -> Unit,
     val musicAccess: () -> Unit,
     val locationAccess: () -> Unit,
+    val openLocationSettings: () -> Unit,
     val overlayAccess: () -> Unit,
     val notificationAccess: () -> Unit,
     val writeSystemAccess: () -> Unit,
@@ -451,6 +455,14 @@ private fun SpeedPage(st: SettingsState, act: SettingsActions) {
     val s = st.settings
     val a = st.accent
     val unit = stringResource(if (s.useKmh) R.string.kmh else R.string.mph)
+    GpsStatusSection(st, act)
+    Section(stringResource(R.string.speed_source)) {
+        Chips(null, listOf(stringResource(R.string.src_auto), stringResource(R.string.src_gps), stringResource(R.string.src_car)), SpeedSource.entries.indexOf(s.speedSource), a) { i ->
+            act.update { it.copy(speedSource = SpeedSource.entries[i]) }
+            if (SpeedSource.entries[i] == SpeedSource.CAR && !s.obd) act.update { it.copy(obd = true) }
+        }
+        Hint(stringResource(R.string.speed_source_hint))
+    }
     Section(stringResource(R.string.speed_alert)) {
         Toggle(stringResource(R.string.speed_alert_on), s.speedAlert, a) { v -> act.update { it.copy(speedAlert = v) } }
         Stepper(
@@ -502,6 +514,44 @@ private fun SpeedPage(st: SettingsState, act: SettingsActions) {
         Hint(stringResource(R.string.speed_volume_hint))
         Chips(null, listOf(stringResource(R.string.off), stringResource(R.string.low), stringResource(R.string.medium), stringResource(R.string.high)), VolumeBoost.entries.indexOf(s.speedVolume), a) { i ->
             act.update { it.copy(speedVolume = VolumeBoost.entries[i]) }
+        }
+    }
+}
+
+@Composable
+private fun DiagRow(label: String, value: String, good: Boolean?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, fontSize = 16.sp, color = TextSecondary, modifier = Modifier.weight(1f))
+        Text(
+            value, fontSize = 16.sp, fontWeight = FontWeight.Medium,
+            color = when (good) { true -> OkGreen; false -> WarnAmber; null -> TextPrimary }
+        )
+    }
+}
+
+/** Live GPS diagnostics, so the reason speed doesn't show is visible on the box itself. */
+@Composable
+private fun GpsStatusSection(st: SettingsState, act: SettingsActions) {
+    val g = st.gps
+    val a = st.accent
+    Section(stringResource(R.string.gps_status)) {
+        DiagRow(stringResource(R.string.gps_permission), stringResource(if (st.hasFineLocation) R.string.allowed else R.string.tap_to_allow), st.hasFineLocation)
+        DiagRow(stringResource(R.string.gps_location_setting), stringResource(if (g.locationOn) R.string.gps_on else R.string.gps_off_value), g.locationOn)
+        DiagRow(stringResource(R.string.gps_chip), stringResource(if (g.hasGpsChip) R.string.gps_found else R.string.gps_missing), g.hasGpsChip)
+        DiagRow(stringResource(R.string.gps_satellites), stringResource(R.string.gps_sats_value, g.satellitesSeen, g.satellitesUsed), g.satellitesUsed > 0)
+        val fix = g.lastFixSecondsAgo
+        DiagRow(
+            stringResource(R.string.gps_last_fix),
+            if (fix == null) stringResource(R.string.gps_never)
+            else stringResource(R.string.gps_last_fix_value, fix.toInt(), g.lastFixProvider ?: "?", g.lastFixAccuracy ?: 0),
+            fix != null && fix <= 6
+        )
+        DiagRow(stringResource(R.string.gps_car_speed), stringResource(if (g.carSpeed) R.string.gps_car_yes else R.string.gps_car_no), if (g.carSpeed) true else null)
+        DiagRow(stringResource(R.string.gps_sources), g.providers.joinToString(", ").ifEmpty { "—" }, null)
+        Hint(stringResource(R.string.gps_help))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ActionButton(stringResource(R.string.open_location_settings), a, onClick = act.openLocationSettings)
+            if (!st.hasFineLocation) ActionButton(stringResource(R.string.location_access), a, onClick = act.locationAccess)
         }
     }
 }
@@ -865,5 +915,6 @@ private fun PermissionsPage(st: SettingsState, act: SettingsActions) {
             Spacer(Modifier.width(10.dp))
             Text(stringResource(R.string.version_line), fontSize = 16.sp, color = TextPrimary)
         }
+        Hint(stringResource(R.string.credits))
     }
 }

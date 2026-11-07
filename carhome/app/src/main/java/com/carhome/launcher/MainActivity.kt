@@ -148,6 +148,9 @@ class MainActivity : ComponentActivity() {
             val voiceStatus by vm.voiceStatus.collectAsStateWithLifecycle()
             val speedMps by vm.engine.speedMps.collectAsStateWithLifecycle()
             val gpsState by vm.engine.gpsState.collectAsStateWithLifecycle()
+            val satellites by vm.engine.satellites.collectAsStateWithLifecycle()
+            val speedFromCar by vm.engine.speedFromCar.collectAsStateWithLifecycle()
+            val gpsDiag by vm.engine.diag.collectAsStateWithLifecycle()
             val overspeed by vm.engine.overspeed.collectAsStateWithLifecycle()
             val limit by vm.engine.limit.collectAsStateWithLifecycle()
             val trip by vm.engine.trip.collectAsStateWithLifecycle()
@@ -201,7 +204,8 @@ class MainActivity : ComponentActivity() {
                                         placesById = placesById, smartPick = smartPick?.let { appsByPackage[it] },
                                         weather = weather, dustInHours = dust, hasLocation = hasLocation,
                                         nowPlaying = nowPlaying, hasMusicAccess = hasMusic, speedMps = speedMps,
-                                        gpsState = gpsState, overspeed = overspeed, limit = limit, prayer = prayer,
+                                        gpsState = gpsState, satellites = satellites.first, speedFromCar = speedFromCar,
+                                        overspeed = overspeed, limit = limit, prayer = prayer,
                                         trip = trip, lastTrip = lastTrip, obdStatus = obdStatus, obdData = obdData,
                                         driving = driving, notices = notices, parkedOnly = parkedOnly
                                     ),
@@ -238,7 +242,8 @@ class MainActivity : ComponentActivity() {
                                         hasNotifications = hasNotif, canWriteSystem = canWrite, hasBluetooth = hasBt,
                                         voiceStatus = voiceStatus, appsByPackage = appsByPackage, places = places,
                                         odometerKm = odometer, oilChangedAtKm = oilAt, obdStatus = obdStatus,
-                                        pairedDevices = paired, scores = scores, prayer = prayer, parkedOnly = parkedOnly
+                                        pairedDevices = paired, scores = scores, prayer = prayer, parkedOnly = parkedOnly,
+                                        gps = gpsDiag
                                     ),
                                     settingsActions
                                 )
@@ -296,6 +301,7 @@ class MainActivity : ComponentActivity() {
             setDefaultHome = { openHomeSettings() },
             musicAccess = { openMusicAccess() },
             locationAccess = { requestLocation() },
+            openLocationSettings = { openLocationSettings() },
             overlayAccess = { openSpecial(Settings.ACTION_MANAGE_OVERLAY_PERMISSION) },
             notificationAccess = {
                 if (Build.VERSION.SDK_INT >= 33) simplePermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -385,7 +391,13 @@ class MainActivity : ComponentActivity() {
         if (!opened) tryStart(appDetails())
     }
 
+    private fun openLocationSettings() {
+        if (!tryStart(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))) tryStart(Intent(Settings.ACTION_SETTINGS))
+    }
+
     private fun requestLocation() {
+        // Permission is there but Android's Location switch is off: open that switch
+        if (vm.engine.hasFine() && !vm.engine.locationEnabled()) { openLocationSettings(); return }
         if (vm.engine.hasFine()) return
         // After "Don't ask again" the system dialog no longer appears — open app info instead
         if (!shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) && core.prefs.askedLocation) {

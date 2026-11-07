@@ -310,7 +310,7 @@
     <string name="trip_started">New trip started</string>
     <string name="unit_kmh">Speed in km/h</string>
     <string name="unit_kmh_hint">Off shows mph</string>
-    <string name="version_line">CarHome 1.2</string>
+    <string name="version_line">CarHome 1.2.1</string>
     <string name="voice">Spoken alerts</string>
     <string name="voice_break">Time for a break</string>
     <string name="voice_dust">Dust is expected. Drive carefully</string>
@@ -333,4 +333,34 @@
     <string name="welcome_on">Greet me when the car starts</string>
     <string name="wide">Wide</string>
     <string name="write_settings_access">Change system settings</string>
+
+    <!-- 1.2.1 -->
+    <string name="location_off">Location is off. Tap to turn it on</string>
+    <string name="waiting_gps_sats">Waiting for GPS… satellites: %1$d</string>
+    <string name="from_car">from car</string>
+    <string name="speed_source">Speed source</string>
+    <string name="src_auto">Automatic</string>
+    <string name="src_gps">GPS only</string>
+    <string name="src_car">Car (OBD)</string>
+    <string name="speed_source_hint">Automatic uses GPS, and switches to the car\'s own speed from an OBD adapter when GPS has no signal. Car needs the adapter (Trip and car → Car data).</string>
+    <string name="gps_status">GPS status</string>
+    <string name="gps_permission">Location permission</string>
+    <string name="gps_location_setting">Location service</string>
+    <string name="gps_on">On</string>
+    <string name="gps_off_value">Off</string>
+    <string name="gps_chip">GPS chip</string>
+    <string name="gps_found">Found</string>
+    <string name="gps_missing">Not found</string>
+    <string name="gps_satellites">Satellites</string>
+    <string name="gps_sats_value">%1$d seen, %2$d used</string>
+    <string name="gps_last_fix">Last position</string>
+    <string name="gps_never">None yet</string>
+    <string name="gps_last_fix_value">%1$d s ago · %2$s · ±%3$d m</string>
+    <string name="gps_car_speed">Speed from the car (OBD)</string>
+    <string name="gps_car_yes">Receiving</string>
+    <string name="gps_car_no">Not connected</string>
+    <string name="gps_sources">Working location sources</string>
+    <string name="gps_help">Check this while driving outdoors. If satellites stay at 0 after a few minutes, the box\'s GPS antenna isn\'t working or isn\'t there. Look in the box\'s own settings for a GPS or car GPS option, or get the speed from the car with an OBD adapter.</string>
+    <string name="open_location_settings">Open location settings</string>
+    <string name="credits">Weather data by Open-Meteo.com. Road speed limits © OpenStreetMap contributors.</string>
 </resources>

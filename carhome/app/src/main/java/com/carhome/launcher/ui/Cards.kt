@@ -347,6 +347,8 @@ fun SpeedCard(
     limit: LimitInfo,
     overspeed: Boolean,
     accent: Color,
+    satellites: Int,
+    fromCar: Boolean,
     onRequestPermission: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -355,12 +357,15 @@ fun SpeedCard(
         modifier = modifier
             .glass()
             .background(bg)
-            .let { if (gpsState == GpsState.NO_PERMISSION) it.clickable(onClick = onRequestPermission) else it }
+            .let {
+                if (gpsState == GpsState.NO_PERMISSION || gpsState == GpsState.LOCATION_OFF) it.clickable(onClick = onRequestPermission) else it
+            }
             .padding(14.dp),
         contentAlignment = Alignment.Center
     ) {
         when (gpsState) {
             GpsState.NO_PERMISSION -> CardMessage(Icons.Rounded.Speed, stringResource(R.string.speed_needs_gps), accent)
+            GpsState.LOCATION_OFF -> CardMessage(Icons.Rounded.LocationOn, stringResource(R.string.location_off), WarnAmber)
             GpsState.NO_HARDWARE -> CardMessage(Icons.Rounded.Speed, stringResource(R.string.no_gps_hw), TextSecondary)
             else -> {
                 val value = speedMps?.let { speedInUnit(it, settings.useKmh) }
@@ -399,10 +404,10 @@ fun SpeedCard(
                         color = if (overspeed) AlertRed else TextPrimary,
                         lineHeight = if (gauge) 56.sp else 86.sp
                     )
-                    Text(unit, fontSize = 15.sp, color = TextSecondary)
+                    Text(if (fromCar) "$unit · ${stringResource(R.string.from_car)}" else unit, fontSize = 15.sp, color = TextSecondary)
                     when {
                         value == null ->
-                            Text(stringResource(R.string.waiting_gps), fontSize = 12.sp, color = TextSecondary)
+                            Text(stringResource(R.string.waiting_gps_sats, satellites), fontSize = 12.sp, color = TextSecondary)
                         overspeed ->
                             Text(stringResource(R.string.over_limit), fontSize = 13.sp, color = AlertRed, fontWeight = FontWeight.SemiBold)
                         settings.speedAlert && limit.limit != null ->

@@ -24,6 +24,9 @@ enum class ObdStatus { OFF, NO_BLUETOOTH, NO_PERMISSION, CHOOSE_ADAPTER, CONNECT
 
 data class ObdData(
     val rpm: Int? = null,
+    val speedKmh: Int? = null,
+    /** SystemClock.elapsedRealtime() of this reading. */
+    val at: Long = 0L,
     val coolantC: Int? = null,
     val fuelPercent: Int? = null,
     val voltage: Float? = null,
@@ -98,6 +101,7 @@ class ObdClient(private val core: Core) {
                 listOf("ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP0").forEach { io.cmd(it) }
                 _status.value = ObdStatus.CONNECTED
                 while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                    val speed = io.pid("010D", 1)?.let { it[0] }
                     val rpm = io.pid("010C", 2)?.let { (it[0] * 256 + it[1]) / 4 }
                     val coolant = io.pid("0105", 1)?.let { it[0] - 40 }
                     val fuel = io.pid("012F", 1)?.let { it[0] * 100 / 255 }
@@ -107,7 +111,7 @@ class ObdClient(private val core: Core) {
                         readCodesRequested = false
                         codes = parseCodes(io.cmd("03"))
                     }
-                    _data.value = ObdData(rpm, coolant, fuel, volts, codes)
+                    _data.value = ObdData(rpm, speed, android.os.SystemClock.elapsedRealtime(), coolant, fuel, volts, codes)
                     delay(1_000L)
                 }
             }.isSuccess

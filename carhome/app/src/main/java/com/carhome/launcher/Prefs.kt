@@ -24,6 +24,8 @@ enum class NightMode { OFF, AUTO, ALWAYS, CUSTOM }
 enum class BubbleSize(val dp: Int) { SMALL(64), MEDIUM(84), LARGE(108) }
 enum class VolumeBoost { OFF, LOW, MEDIUM, HIGH }
 enum class Background { CLASSIC, SKY, PHOTO }
+/** Where the shown speed comes from. AUTO = GPS, or the car (OBD) when GPS has no signal. */
+enum class SpeedSource { AUTO, GPS, CAR }
 
 /**
  * Every user choice. All features added in 1.2 start switched off, so the home
@@ -46,6 +48,7 @@ data class LauncherSettings(
     val showHijri: Boolean = false,
     val speedStyle: SpeedStyle = SpeedStyle.GAUGE,
     val useKmh: Boolean = true,
+    val speedSource: SpeedSource = SpeedSource.AUTO,
     // Speed alert
     val speedAlert: Boolean = true,
     val speedLimit: Int = 120,
@@ -365,6 +368,7 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         showHijri = o.optBoolean("showHijri", d.showHijri),
         speedStyle = o.enumOr("speedStyle", d.speedStyle),
         useKmh = o.optBoolean("useKmh", d.useKmh),
+        speedSource = o.enumOr("speedSource", d.speedSource),
         speedAlert = o.optBoolean("speedAlert", d.speedAlert),
         speedLimit = o.optInt("speedLimit", d.speedLimit).coerceIn(SPEED_LIMIT_MIN, SPEED_LIMIT_MAX),
         alertMode = o.enumOr("alertMode", d.alertMode),
@@ -440,6 +444,7 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("showHijri", s.showHijri)
     put("speedStyle", s.speedStyle.name)
     put("useKmh", s.useKmh)
+    put("speedSource", s.speedSource.name)
     put("speedAlert", s.speedAlert)
     put("speedLimit", s.speedLimit)
     put("alertMode", s.alertMode.name)

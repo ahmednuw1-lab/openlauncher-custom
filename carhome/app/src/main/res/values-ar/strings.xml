@@ -310,7 +310,7 @@
     <string name="trip_started">بدأت رحلة جديدة</string>
     <string name="unit_kmh">السرعة بالكيلومتر</string>
     <string name="unit_kmh_hint">عند الإيقاف تظهر بالميل</string>
-    <string name="version_line">CarHome 1.2</string>
+    <string name="version_line">CarHome 1.2.1</string>
     <string name="voice">التنبيهات الصوتية</string>
     <string name="voice_break">حان وقت الاستراحة</string>
     <string name="voice_dust">يُتوقع غبار. قد بحذر</string>
@@ -333,4 +333,34 @@
     <string name="welcome_on">رحّب بي عند تشغيل السيارة</string>
     <string name="wide">عريض</string>
     <string name="write_settings_access">تعديل إعدادات النظام</string>
+
+    <!-- 1.2.1 -->
+    <string name="location_off">خدمة الموقع مقفلة. اضغط لتشغيلها</string>
+    <string name="waiting_gps_sats">بانتظار إشارة GPS… الأقمار: %1$d</string>
+    <string name="from_car">من السيارة</string>
+    <string name="speed_source">مصدر السرعة</string>
+    <string name="src_auto">تلقائي</string>
+    <string name="src_gps">GPS فقط</string>
+    <string name="src_car">السيارة (OBD)</string>
+    <string name="speed_source_hint">التلقائي يستخدم GPS، ويتحول لسرعة السيارة نفسها من قطعة OBD إذا ما فيه إشارة GPS. خيار السيارة يحتاج القطعة (الرحلة والسيارة ← بيانات السيارة).</string>
+    <string name="gps_status">حالة GPS</string>
+    <string name="gps_permission">إذن الموقع</string>
+    <string name="gps_location_setting">خدمة الموقع</string>
+    <string name="gps_on">تعمل</string>
+    <string name="gps_off_value">مقفلة</string>
+    <string name="gps_chip">شريحة GPS</string>
+    <string name="gps_found">موجودة</string>
+    <string name="gps_missing">غير موجودة</string>
+    <string name="gps_satellites">الأقمار</string>
+    <string name="gps_sats_value">يرى %1$d، يستخدم %2$d</string>
+    <string name="gps_last_fix">آخر موقع</string>
+    <string name="gps_never">لا يوجد بعد</string>
+    <string name="gps_last_fix_value">قبل %1$d ث · %2$s · ±%3$d م</string>
+    <string name="gps_car_speed">السرعة من السيارة (OBD)</string>
+    <string name="gps_car_yes">تصل</string>
+    <string name="gps_car_no">غير متصلة</string>
+    <string name="gps_sources">مصادر الموقع العاملة</string>
+    <string name="gps_help">افحص هذا وأنت تمشي في الشارع. إذا بقيت الأقمار 0 بعد دقائق، فهوائي GPS في الجهاز لا يعمل أو غير موجود. ابحث في إعدادات الجهاز نفسه عن خيار GPS أو GPS السيارة، أو خذ السرعة من السيارة بقطعة OBD.</string>
+    <string name="open_location_settings">فتح إعدادات الموقع</string>
+    <string name="credits">بيانات الطقس من Open-Meteo.com. حدود السرعة © OpenStreetMap contributors.</string>
 </resources>
