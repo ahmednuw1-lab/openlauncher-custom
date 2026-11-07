@@ -69,7 +69,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "carhome-shots-${{ github.run_number }}" shots/* \
+          gh release create "carhome-shots-${{ github.run_number }}" $(find shots -type f -size +0c | sort) \
             --title "CarHome screenshots ${{ github.run_number }}" \
             --notes "Emulator screenshots at 1280x720" \
             --prerelease
