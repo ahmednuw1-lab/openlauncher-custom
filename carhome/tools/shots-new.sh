@@ -90,7 +90,10 @@ shot 30-settings-display-card-style
 adb shell input tap 145 130
 sleep 2
 shot 31-settings-home-icons
-for i in 1 2; do adb shell input swipe 800 620 800 200 300; sleep 0.5; done
+adb shell input swipe 800 620 800 330 300
 sleep 1
-shot 32-settings-home-top-bar
+shot 32-settings-home-cards
+adb shell input swipe 800 620 800 330 300
+sleep 1
+shot 33-settings-home-top-bar
 adb shell input keyevent KEYCODE_BACK
