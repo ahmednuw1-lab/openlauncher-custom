@@ -1,6 +1,7 @@
-# CarHome 1.2.11
+# CarHome 1.2.12
 
 ## en
+- Clock and speed are centred in their cards (Settings → Home screen → Layout to put them back at the side)
 - 16 accent colours and your own custom colour, plus one-tap themes (Settings → Display)
 - Speed card: a real half-circle gauge on low screens, with marks and a red zone above your limit
 - Top bar weather fits your screen: fewer or more hours, and swipe or tap the arrow for the next 24 hours
@@ -11,6 +12,7 @@
 - Security: updates are checked more strictly before installing, and downloads are size-limited
 
 ## ar
+- الساعة والسرعة في وسط البطاقة (الإعدادات ← الشاشة الرئيسية ← التخطيط لإعادتهما إلى الجانب)
 - 16 لونًا مميزًا ولونك المخصص، مع سمات جاهزة بضغطة واحدة (الإعدادات ← العرض)
 - بطاقة السرعة: عدّاد نصف دائري حقيقي على الشاشات المنخفضة، مع علامات ومنطقة حمراء فوق حدّك
 - طقس الشريط العلوي يناسب شاشتك: ساعات أقل أو أكثر، واسحب أو اضغط السهم لرؤية الـ 24 ساعة القادمة

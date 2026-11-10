@@ -83,10 +83,16 @@ class PrefsJsonTest {
         SpeedStyle.entries, AppLanguage.entries, NoRoadData.entries, PrayerMethod.entries,
         TripReset.entries, NightMode.entries, BubbleSize.entries, VolumeBoost.entries,
         Background.entries, SpeedSource.entries, SoundChannel.entries,
-        TopBar.entries, CardFill.entries, Corners.entries, IconSize.entries, IconShape.entries
+        TopBar.entries, CardFill.entries, Corners.entries, IconSize.entries, IconShape.entries, CardAlign.entries
     ).flatten().map { it.name }.toSet()
 
     // ── 1.2.11: top bar choice and the look ──
+
+    @Test fun clockAndSpeedAreCentredUnlessChosenOtherwise() {
+        assertEquals(CardAlign.CENTER, settingsFromJson(JSONObject()).cardAlign)
+        val s = defaults.copy(cardAlign = CardAlign.SIDE)
+        assertEquals(s, roundTrip(s))
+    }
 
     @Test fun lookSettingsRoundTrip() {
         val s = defaults.copy(

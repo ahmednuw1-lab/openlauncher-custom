@@ -35,6 +35,8 @@ enum class CardFill { CLEAR, GLASS, FROSTED, SOLID }
 enum class Corners(val dp: Int) { SQUARE(12), ROUNDED(28), EXTRA(40) }
 enum class IconSize(val scale: Float) { SMALL(0.8f), MEDIUM(1f), LARGE(1.2f) }
 enum class IconShape { ORIGINAL, CIRCLE, ROUNDED }
+/** Where the clock and the speed sit in their cards. */
+enum class CardAlign { CENTER, SIDE }
 
 /**
  * Every user choice. All features added in 1.2 start switched off, so the home
@@ -137,6 +139,7 @@ data class LauncherSettings(
     val highContrast: Boolean = false,        // stronger text and borders for sunlight
     val iconSize: IconSize = IconSize.MEDIUM,
     val iconShape: IconShape = IconShape.ORIGINAL,
+    val cardAlign: CardAlign = CardAlign.CENTER,   // clock and speed centred in their cards (1.2.12)
 ) {
     /** The weather strip is on the top bar (also decides whether weather is downloaded). */
     val showWeather: Boolean get() = topBar == TopBar.WEATHER
@@ -581,7 +584,8 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         corners = o.enumOr("corners", d.corners),
         highContrast = o.optBoolean("highContrast", d.highContrast),
         iconSize = o.enumOr("iconSize", d.iconSize),
-        iconShape = o.enumOr("iconShape", d.iconShape)
+        iconShape = o.enumOr("iconShape", d.iconShape),
+        cardAlign = o.enumOr("cardAlign", d.cardAlign)
     )
 }
 
@@ -672,4 +676,5 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("highContrast", s.highContrast)
     put("iconSize", s.iconSize.name)
     put("iconShape", s.iconShape.name)
+    put("cardAlign", s.cardAlign.name)
 }

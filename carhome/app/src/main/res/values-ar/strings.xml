@@ -538,4 +538,7 @@
     <string name="top_weather_hint">يعرض من الساعات ما يناسب عرض شاشتك. اسحبه يمينًا أو يسارًا، أو اضغط السهم، لرؤية الـ 24 ساعة القادمة.</string>
     <string name="more_hours">ساعات لاحقة</string>
     <string name="back_to_now">العودة إلى الآن</string>
+    <string name="card_align">موضع الساعة والسرعة</string>
+    <string name="align_center">في الوسط</string>
+    <string name="align_side">على الجانب</string>
 </resources>

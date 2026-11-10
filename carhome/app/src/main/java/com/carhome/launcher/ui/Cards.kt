@@ -81,6 +81,7 @@ import com.carhome.launcher.Astro
 import com.carhome.launcher.GpsState
 import com.carhome.launcher.HourForecast
 import com.carhome.launcher.LauncherSettings
+import com.carhome.launcher.CardAlign
 import com.carhome.launcher.LookMath
 import com.carhome.launcher.LimitInfo
 import com.carhome.launcher.Nearby
@@ -162,7 +163,8 @@ fun ClockCard(settings: LauncherSettings, driving: Boolean, modifier: Modifier =
     }
     Column(
         modifier = modifier.glass().padding(horizontal = 24.dp, vertical = if (compact) 8.dp else 16.dp),
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = if (settings.cardAlign == CardAlign.CENTER) Alignment.CenterHorizontally else Alignment.Start
     ) {
         val big = when {
             compact && settings.clockSeconds -> 40.sp
@@ -387,18 +389,26 @@ fun SpeedCard(
                     // that falls back to the number with a thin bar.
                     val h = maxHeight
                     val semi = settings.speedStyle == SpeedStyle.GAUGE && h >= 56.dp
-                    Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                    // Centred: the gauge and its text sit together in the middle of the card
+                    val centred = settings.cardAlign == CardAlign.CENTER
+                    Row(
+                        Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = if (centred) Arrangement.Center else Arrangement.Start
+                    ) {
                         if (semi) {
                             SemiGauge(shownState, maxScale, redFrom, arcColor, number, numberColor, h)
                         } else {
                             Text(number, fontSize = 46.sp, fontWeight = FontWeight.Light, color = numberColor, lineHeight = 48.sp, maxLines = 1)
                         }
                         Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
+                        Column(if (centred) Modifier.weight(1f, fill = false) else Modifier.weight(1f)) {
                             Text(unitText, fontSize = 15.sp, color = TextSecondary, maxLines = 1)
                             status()
                         }
-                        if (settings.roadLimit && limit.roadLimit != null) RoadSign(limit.roadLimit, 40.dp)
+                        if (settings.roadLimit && limit.roadLimit != null) {
+                            if (centred) Spacer(Modifier.width(12.dp))
+                            RoadSign(limit.roadLimit, 40.dp)
+                        }
                     }
                     if (!semi && settings.speedStyle == SpeedStyle.GAUGE) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {

@@ -13,8 +13,8 @@ android {
         applicationId = "com.carhome.launcher"
         minSdk        = 26
         targetSdk     = 36
-        versionCode   = 14
-        versionName   = "1.2.11"
+        versionCode   = 15
+        versionName   = "1.2.12"
     }
 
     // Releases are signed outside Gradle: the build job makes an unsigned APK and a

@@ -2,6 +2,7 @@ package com.carhome.launcher.ui
 
 import com.carhome.launcher.AccentColors
 import com.carhome.launcher.CardFill
+import com.carhome.launcher.CardAlign
 import com.carhome.launcher.Corners
 import com.carhome.launcher.IconShape
 import com.carhome.launcher.IconSize
@@ -573,6 +574,9 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
         }
         Chips(stringResource(R.string.cards_width), listOf(stringResource(R.string.narrow), stringResource(R.string.normal), stringResource(R.string.wide)), ColumnWidth.entries.indexOf(s.infoWidth), a) { i ->
             act.update { it.copy(infoWidth = ColumnWidth.entries[i]) }
+        }
+        Chips(stringResource(R.string.card_align), listOf(stringResource(R.string.align_center), stringResource(R.string.align_side)), CardAlign.entries.indexOf(s.cardAlign), a) { i ->
+            act.update { it.copy(cardAlign = CardAlign.entries[i]) }
         }
         Chips(stringResource(R.string.text_size), listOf(stringResource(R.string.normal), stringResource(R.string.large), stringResource(R.string.extra_large)), TextSize.entries.indexOf(s.textSize), a) { i ->
             act.update { it.copy(textSize = TextSize.entries[i]) }
