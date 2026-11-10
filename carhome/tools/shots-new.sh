@@ -3,12 +3,16 @@
 
 MUSICAPP=$(echo "$ALL" | head -1)
 
+# This version's "What's new" counts as already seen, so it doesn't cover the screens
+VC=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' app/build.gradle.kts)
+SEEN="<int name=\"last_version_code\" value=\"$VC\" />"
+
 # 20–22: a wide, low car screen like the AI box (1920x720 at 240 dpi = 1280x480 dp):
 # the half-circle speed gauge, and the weather strip with as many hours as fit
 adb shell wm size 1920x720
 adb shell wm density 240
 LOW='{"tileCount":8,"cards":["CLOCK","SPEED","MUSIC","TRIP"],"topBar":"WEATHER","speedAlert":true,"speedLimit":120}'
-prefs "$LOW" "$APPS7" "$BOOT" '<int name="last_version_code" value="14" />'
+prefs "$LOW" "$APPS7" "$BOOT" "$SEEN"
 start
 sleep 4
 adb emu geo fix 49.5886 25.3833
@@ -27,7 +31,7 @@ sleep 2
 
 # 23: the same low screen in Arabic (the gauge is never mirrored)
 adb shell cmd locale set-app-locales $PKG --locales ar || true
-prefs "$LOW" "$APPS7" "$BOOT" '<int name="last_version_code" value="14" />'
+prefs "$LOW" "$APPS7" "$BOOT" "$SEEN"
 start
 sleep 12
 for i in 1 2 3 4 5 6; do adb emu geo fix 49.61$i 25.3833 150 8 32; sleep 1; done   # about 60 km/h
@@ -41,7 +45,7 @@ adb shell wm density 160
 
 # 24: "Ice" theme — ice-blue accent, frosted cards, extra-round corners, round icons, date in the top bar
 ICE='{"tileCount":8,"cards":["CLOCK","SPEED","WEATHER"],"topBar":"DATE","accent":4286436348,"cardFill":"FROSTED","corners":"EXTRA","iconShape":"CIRCLE","showHijri":true}'
-prefs "$ICE" "$APPS7" "$BOOT" '<int name="last_version_code" value="14" />'
+prefs "$ICE" "$APPS7" "$BOOT" "$SEEN"
 start
 sleep 16
 for i in 1 2 3 4 5; do adb emu geo fix 49.62$i 25.3833 150 8 49; sleep 1; done   # about 90 km/h
@@ -50,28 +54,28 @@ park
 
 # 25: "Carbon" — pearl accent, solid cards, square corners, large icons, trip in the top bar
 CARBON='{"tileCount":6,"cards":["CLOCK","SPEED","PRAYER"],"topBar":"TRIP","accent":4293257195,"cardFill":"SOLID","corners":"SQUARE","iconSize":"LARGE","iconShape":"ROUNDED"}'
-prefs "$CARBON" "$APPS7" "$BOOT" '<int name="last_version_code" value="14" />'
+prefs "$CARBON" "$APPS7" "$BOOT" "$SEEN"
 start
 sleep 16
 shot 25-theme-carbon-trip-bar
 
 # 26: high contrast over the living sky, lime accent, music in the top bar
 HC='{"tileCount":8,"cards":["CLOCK","SPEED","MUSIC"],"topBar":"MUSIC","accent":4288931381,"background":"SKY","highContrast":true,"showPrayerChip":true}'
-prefs "$HC" "$APPS7" "$BOOT" '<int name="last_version_code" value="14" />'
+prefs "$HC" "$APPS7" "$BOOT" "$SEEN"
 start
 sleep 16
 shot 26-high-contrast-music-bar
 
 # 27: clear cards with a narrow weather strip beside the prayer chip (fewer hours fit)
 NARROW='{"tileCount":8,"cards":["CLOCK","SPEED","MUSIC"],"topBar":"WEATHER","showPrayerChip":true,"infoWidth":"WIDE","cardFill":"CLEAR","accent":4294933061}'
-prefs "$NARROW" "$APPS7" "$BOOT" '<int name="last_version_code" value="14" />'
+prefs "$NARROW" "$APPS7" "$BOOT" "$SEEN"
 start
 sleep 16
 shot 27-narrow-weather-strip
 
 # 28–30: Settings → Display with a custom colour (the two sliders are open)
 CUSTOMC='{"tileCount":8,"topBar":"WEATHER","accent":4284534015}'
-prefs "$CUSTOMC" "$APPS7" "$BOOT" '<int name="last_version_code" value="14" />'
+prefs "$CUSTOMC" "$APPS7" "$BOOT" "$SEEN"
 start
 sleep 8
 adb shell input tap 1232 48
