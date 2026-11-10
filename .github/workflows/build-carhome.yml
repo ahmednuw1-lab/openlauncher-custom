@@ -112,11 +112,16 @@ jobs:
           KEY="$RUNNER_TEMP/carhome.p12"
           trap 'rm -f "$KEY"' EXIT
           echo "$KEY_B64" | base64 -d > "$KEY"
+          echo "Signing tools: $BT"
           "$BT/zipalign" -f -p 4 handover/carhome-unsigned.apk aligned.apk
+          echo "Aligned"
           "$BT/apksigner" sign --ks "$KEY" --ks-type pkcs12 --ks-key-alias carhome \
             --ks-pass env:KS_PASS --key-pass env:KS_PASS --out carhome.apk aligned.apk
-          # Refuse to publish anything that isn't properly signed
-          "$BT/apksigner" verify --print-certs carhome.apk | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          echo "Signed"
+          # Refuse to publish anything that isn't properly signed: apksigner's own
+          # verdict decides (it fails the step); the certificate lines are only shown
+          "$BT/apksigner" verify --print-certs carhome.apk > verify.txt
+          grep -E 'certificate (DN|SHA-256)' verify.txt || true
           sha256sum carhome.apk
 
       - name: Publish APK as a release
