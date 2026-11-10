@@ -44,4 +44,13 @@ class UpdateReleaseTest {
     private companion object {
         const val GOOD_URL = "https://github.com/ahmednuw1-lab/openlauncher-custom/releases/download/carhome-21/carhome.apk"
     }
+
+    @Test fun readsTheApkDigestWhenGitHubPublishesOne() {
+        val hex = "e6b8e3be963f8c4c7860ff62c4c4d07e5c76d07a28a54d7a62ad42faf4bdd1aa"
+        val o = release()
+        o.getJSONArray("assets").getJSONObject(0).put("digest", "sha256:$hex")
+        assertEquals(hex, UpdateRelease.fromJson(o)!!.sha256)
+    }
+
+    @Test fun aReleaseWithoutADigestStillWorks() = assertNull(UpdateRelease.fromJson(release())!!.sha256)
 }

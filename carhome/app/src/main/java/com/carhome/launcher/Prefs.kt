@@ -28,6 +28,13 @@ enum class Background { CLASSIC, SKY, PHOTO }
 enum class SpeedSource { AUTO, GPS, CAR }
 /** How alert sounds reach the car: as a navigation prompt (ducks music) or as media. */
 enum class SoundChannel { NAVIGATION, MEDIA }
+/** What the pill at the top of the home screen shows. */
+enum class TopBar { WEATHER, PRAYER, DATE, MUSIC, TRIP, NONE }
+/** How solid the cards are: from almost clear to a solid dark panel. */
+enum class CardFill { CLEAR, GLASS, FROSTED, SOLID }
+enum class Corners(val dp: Int) { SQUARE(12), ROUNDED(28), EXTRA(40) }
+enum class IconSize(val scale: Float) { SMALL(0.8f), MEDIUM(1f), LARGE(1.2f) }
+enum class IconShape { ORIGINAL, CIRCLE, ROUNDED }
 
 /**
  * Every user choice. All features added in 1.2 start switched off, so the home
@@ -38,7 +45,7 @@ data class LauncherSettings(
     // Home layout
     val tileCount: Int = 8,
     val cards: List<CardType> = DEFAULT_CARDS,
-    val showWeather: Boolean = true,          // weather strip in the top bar
+    val topBar: TopBar = TopBar.WEATHER,      // what the pill in the top bar shows
     val showPrayerChip: Boolean = false,      // "next prayer" chip in the top bar
     val infoSide: Side = Side.START,
     val infoWidth: ColumnWidth = ColumnWidth.NORMAL,
@@ -124,7 +131,16 @@ data class LauncherSettings(
     val speedCameras: Boolean = false,        // warn before OpenStreetMap speed cameras
     val cameraSound: Boolean = true,
     val secondPage: Boolean = false,          // a second, swipeable page of tiles
-)
+    // Look (1.2.11)
+    val cardFill: CardFill = CardFill.GLASS,
+    val corners: Corners = Corners.ROUNDED,
+    val highContrast: Boolean = false,        // stronger text and borders for sunlight
+    val iconSize: IconSize = IconSize.MEDIUM,
+    val iconShape: IconShape = IconShape.ORIGINAL,
+) {
+    /** The weather strip is on the top bar (also decides whether weather is downloaded). */
+    val showWeather: Boolean get() = topBar == TopBar.WEATHER
+}
 
 val DEFAULT_CARDS = listOf(CardType.CLOCK, CardType.SPEED, CardType.MUSIC)
 const val MAX_CARDS = 4
@@ -140,15 +156,8 @@ val REMINDER_MINUTES = listOf(0, 5, 10, 15)
 val AUTO_DELAYS = listOf(0, 5, 10)
 val NIGHT_DIMS = listOf(20, 40, 60, 80)
 
-/** Modern accent palette offered in Settings (ARGB). */
-val ACCENTS: List<Long> = listOf(
-    0xFF4F8CFF, // blue
-    0xFF22C55E, // green
-    0xFFF59E0B, // amber
-    0xFFEF4444, // red
-    0xFFA855F7, // purple
-    0xFF14B8A6  // teal
-)
+/** Accent palette offered in Settings (ARGB); see [AccentColors]. */
+val ACCENTS: List<Long> = AccentColors.PRESETS.map { it.argb }
 
 // ── Small stored records ──────────────────────────────────────────────────────
 
@@ -228,7 +237,7 @@ class Prefs(context: Context) {
             tileCount = sp.getInt("tile_count", d.tileCount).takeIf { it in TILE_COUNTS } ?: d.tileCount,
             accent = sp.getLong("accent", d.accent),
             use24h = sp.getBoolean("use_24h", d.use24h),
-            showWeather = sp.getBoolean("show_weather", d.showWeather),
+            topBar = if (sp.getBoolean("show_weather", true)) TopBar.WEATHER else TopBar.NONE,
             cards = if (showSpeed) DEFAULT_CARDS else listOf(CardType.CLOCK, CardType.MUSIC),
             useKmh = sp.getBoolean("use_kmh", d.useKmh),
             speedAlert = sp.getBoolean("speed_alert", d.speedAlert),
@@ -488,7 +497,9 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
     return LauncherSettings(
         tileCount = o.intFrom("tileCount", d.tileCount, TILE_COUNTS),
         cards = cards,
-        showWeather = o.optBoolean("showWeather", d.showWeather),
+        // Before 1.2.11 the top bar was a weather on/off switch
+        topBar = if (o.has("topBar")) o.enumOr("topBar", d.topBar)
+            else if (o.optBoolean("showWeather", true)) TopBar.WEATHER else TopBar.NONE,
         showPrayerChip = o.optBoolean("showPrayerChip", d.showPrayerChip),
         infoSide = o.enumOr("infoSide", d.infoSide),
         infoWidth = o.enumOr("infoWidth", d.infoWidth),
@@ -544,7 +555,7 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         autoMusic = o.optBoolean("autoMusic", d.autoMusic),
         autoApp = o.optString("autoApp", d.autoApp),
         autoDelay = o.intFrom("autoDelay", d.autoDelay, AUTO_DELAYS),
-        accent = o.optLong("accent", d.accent),
+        accent = AccentColors.opaque(o.optLong("accent", d.accent)),
         songColours = o.optBoolean("songColours", d.songColours),
         background = o.enumOr("background", d.background),
         nightMode = o.enumOr("nightMode", d.nightMode),
@@ -565,14 +576,20 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         voice = o.optBoolean("voice", d.voice),
         voiceSpeed = o.optBoolean("voiceSpeed", d.voiceSpeed),
         voicePrayer = o.optBoolean("voicePrayer", d.voicePrayer),
-        voiceReminders = o.optBoolean("voiceReminders", d.voiceReminders)
+        voiceReminders = o.optBoolean("voiceReminders", d.voiceReminders),
+        cardFill = o.enumOr("cardFill", d.cardFill),
+        corners = o.enumOr("corners", d.corners),
+        highContrast = o.optBoolean("highContrast", d.highContrast),
+        iconSize = o.enumOr("iconSize", d.iconSize),
+        iconShape = o.enumOr("iconShape", d.iconShape)
     )
 }
 
 fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("tileCount", s.tileCount)
     put("cards", JSONArray().apply { s.cards.forEach { put(it.name) } })
-    put("showWeather", s.showWeather)
+    put("topBar", s.topBar.name)
+    put("showWeather", s.showWeather)   // still written for a backup loaded on an older CarHome
     put("showPrayerChip", s.showPrayerChip)
     put("infoSide", s.infoSide.name)
     put("infoWidth", s.infoWidth.name)
@@ -650,4 +667,9 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("voiceSpeed", s.voiceSpeed)
     put("voicePrayer", s.voicePrayer)
     put("voiceReminders", s.voiceReminders)
+    put("cardFill", s.cardFill.name)
+    put("corners", s.corners.name)
+    put("highContrast", s.highContrast)
+    put("iconSize", s.iconSize.name)
+    put("iconShape", s.iconShape.name)
 }

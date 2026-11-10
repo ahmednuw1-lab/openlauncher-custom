@@ -87,7 +87,7 @@ fun WhatsNewOverlay(items: List<String>?, version: String, accent: Color, onClos
                         .padding(horizontal = 32.dp, vertical = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(stringResource(R.string.ok), fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.ok), fontSize = 18.sp, color = onAccent(accent), fontWeight = FontWeight.Medium)
                 }
             }
         }

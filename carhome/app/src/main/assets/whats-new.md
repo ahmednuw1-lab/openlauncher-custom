@@ -1,21 +1,21 @@
-# CarHome 1.2.10
+# CarHome 1.2.11
 
 ## en
-- Settings backup and restore: save everything to a file and load it on any box (Settings → Permissions & about)
-- Speed camera warnings ahead of you, from OpenStreetMap (Settings → Speed and alerts)
-- Car paperwork and maintenance reminders: registration, insurance, inspection, licence, tyres, battery, service (Settings → Trip and car)
-- Trip history with totals for the last 7 days and this month (Settings → Trip and car)
-- Optional second page of app tiles: swipe left or right (Settings → Home screen)
-- What's new: shown before you install an update, and once after
-- Western digits (123) everywhere, also in Arabic
-- Smoother speed card and an easier welcome-name box
+- 16 accent colours and your own custom colour, plus one-tap themes (Settings → Display)
+- Speed card: a real half-circle gauge on low screens, with marks and a red zone above your limit
+- Top bar weather fits your screen: fewer or more hours, and swipe or tap the arrow for the next 24 hours
+- Top bar can show weather, next prayer, the date, music or the trip instead (Settings → Home screen)
+- Card style: clear, glass, frosted or solid, with square or round corners, and a high-contrast mode for sunlight
+- App icon size and shape (Settings → Home screen)
+- Bigger buttons in Settings and a small press effect on every button
+- Security: updates are checked more strictly before installing, and downloads are size-limited
 
 ## ar
-- نسخ الإعدادات واستعادتها: احفظ كل شيء في ملف وحمّله على أي جهاز (الإعدادات ← الأذونات وحول)
-- تنبيه كاميرات السرعة أمامك من خرائط OpenStreetMap (الإعدادات ← السرعة والتنبيهات)
-- تذكير بأوراق السيارة وصيانتها: الاستمارة والتأمين والفحص الدوري والرخصة والإطارات والبطارية والصيانة (الإعدادات ← الرحلة والسيارة)
-- سجل الرحلات مع مجموع آخر 7 أيام وهذا الشهر (الإعدادات ← الرحلة والسيارة)
-- صفحة ثانية اختيارية للتطبيقات: اسحب يمينًا أو يسارًا (الإعدادات ← الشاشة الرئيسية)
-- ما الجديد: يظهر قبل تثبيت التحديث ومرة بعده
-- أرقام 123 في كل مكان، حتى بالعربية
-- بطاقة سرعة أخف وخانة اسم الترحيب أسهل
+- 16 لونًا مميزًا ولونك المخصص، مع سمات جاهزة بضغطة واحدة (الإعدادات ← العرض)
+- بطاقة السرعة: عدّاد نصف دائري حقيقي على الشاشات المنخفضة، مع علامات ومنطقة حمراء فوق حدّك
+- طقس الشريط العلوي يناسب شاشتك: ساعات أقل أو أكثر، واسحب أو اضغط السهم لرؤية الـ 24 ساعة القادمة
+- الشريط العلوي يعرض الطقس أو الصلاة القادمة أو التاريخ أو الموسيقى أو الرحلة (الإعدادات ← الشاشة الرئيسية)
+- شكل البطاقات: شفاف أو زجاجي أو معتم، بزوايا مربعة أو دائرية، ووضع تباين عالٍ تحت الشمس
+- حجم وشكل أيقونات التطبيقات (الإعدادات ← الشاشة الرئيسية)
+- أزرار أكبر في الإعدادات وتأثير ضغط خفيف على كل الأزرار
+- الأمان: فحص أدق للتحديثات قبل التثبيت، وحد لحجم التنزيلات

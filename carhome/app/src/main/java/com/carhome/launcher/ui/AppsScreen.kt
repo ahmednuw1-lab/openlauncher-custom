@@ -205,14 +205,13 @@ fun AppsScreen(
 private fun TabChip(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .height(48.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .height(56.dp)
+            .pressable(RoundedCornerShape(28.dp), onClick)
             .background(if (selected) accent else Color.White.copy(alpha = 0.06f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp),
+            .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = if (selected) Color.White else TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = if (selected) onAccent(accent) else TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
     }
 }
 

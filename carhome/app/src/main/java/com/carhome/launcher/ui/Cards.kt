@@ -81,6 +81,7 @@ import com.carhome.launcher.Astro
 import com.carhome.launcher.GpsState
 import com.carhome.launcher.HourForecast
 import com.carhome.launcher.LauncherSettings
+import com.carhome.launcher.LookMath
 import com.carhome.launcher.LimitInfo
 import com.carhome.launcher.Nearby
 import com.carhome.launcher.NowPlaying
@@ -201,66 +202,8 @@ private fun hourLabel(hour: Int, use24h: Boolean, locale: Locale): String {
     return SimpleDateFormat(if (use24h) "HH:mm" else "h a", locale).format(cal.time)
 }
 
-/** Current weather plus the next 5 hours, as one glass pill across the top. */
 @Composable
-fun WeatherStrip(
-    weather: WeatherInfo?,
-    hasLocation: Boolean,
-    use24h: Boolean,
-    accent: Color,
-    compact: Boolean,
-    onRequestLocation: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val locale = appLocale()
-    Row(
-        modifier = modifier
-            .height(64.dp)
-            .glass(RoundedCornerShape(32.dp))
-            .let { if (!hasLocation) it.clickable(onClick = onRequestLocation) else it }
-            .padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        when {
-            !hasLocation -> {
-                Icon(Icons.Rounded.LocationOn, null, tint = accent, modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(stringResource(R.string.weather_off), color = TextSecondary, fontSize = 15.sp, maxLines = 1)
-            }
-            weather == null -> {
-                Icon(Icons.Rounded.Cloud, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(stringResource(R.string.weather_loading), color = TextSecondary, fontSize = 15.sp, maxLines = 1)
-            }
-            else -> {
-                val kind = weatherKind(weather.code)
-                Icon(weatherIcon(kind, weather.isDay), null, tint = accent, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.width(10.dp))
-                Text("${weather.temperatureC.roundToInt()}°", fontSize = 28.sp, fontWeight = FontWeight.Light, color = TextPrimary)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(kind.label), fontSize = 14.sp, color = TextSecondary,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
-                )
-                if (weather.nextHours.isNotEmpty() && !compact) {
-                    Spacer(Modifier.width(14.dp))
-                    Box(Modifier.width(1.dp).height(34.dp).background(GlassStroke))
-                    Spacer(Modifier.width(6.dp))
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        weather.nextHours.forEach { h -> HourCell(h, use24h, locale) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HourCell(h: HourForecast, use24h: Boolean, locale: Locale) {
+internal fun HourCell(h: HourForecast, use24h: Boolean, locale: Locale) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(hourLabel(h.hour, use24h, locale), fontSize = 12.sp, color = TextSecondary, maxLines = 1)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -315,7 +258,9 @@ fun WeatherCard(
                 }
                 if (tall && weather.nextHours.isNotEmpty()) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        weather.nextHours.forEach { h -> HourCell(h, use24h, locale) }
+                        // As many of the coming hours as the card is wide
+                        val fit = LookMath.hourCells(this@BoxWithConstraints.maxWidth.value).coerceIn(1, 6)
+                        weather.nextHours.take(fit).forEach { h -> HourCell(h, use24h, locale) }
                     }
                 }
             }
@@ -403,7 +348,8 @@ fun SpeedCard(
                 // The number shows the speed as it is (one update a second); only the gauge
                 // glides, and it's read while drawing, so the card isn't rebuilt every frame
                 val shownState = animateFloatAsState(value ?: 0f, tween(400), label = "speed")
-                val maxScale = if (settings.useKmh) 200f else 130f
+                val maxScale = LookMath.gaugeMax(settings.useKmh, limit.limit.takeIf { settings.speedAlert })
+                val redFrom = LookMath.redZoneStart(limit.limit.takeIf { settings.speedAlert }, maxScale)
                 val arcColor = if (overspeed) AlertRed else accent
                 val unit = stringResource(if (settings.useKmh) R.string.kmh else R.string.mph)
                 val gauge = settings.speedStyle == SpeedStyle.GAUGE && !compact
@@ -436,8 +382,17 @@ fun SpeedCard(
                 }
 
                 if (compact) {
+                    // Low cards (wide, low car screens): a half-circle gauge with the number
+                    // inside it, as tall as the card allows. Only a card too low even for
+                    // that falls back to the number with a thin bar.
+                    val h = maxHeight
+                    val semi = settings.speedStyle == SpeedStyle.GAUGE && h >= 56.dp
                     Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(number, fontSize = 46.sp, fontWeight = FontWeight.Light, color = numberColor, lineHeight = 48.sp, maxLines = 1)
+                        if (semi) {
+                            SemiGauge(shownState, maxScale, redFrom, arcColor, number, numberColor, h)
+                        } else {
+                            Text(number, fontSize = 46.sp, fontWeight = FontWeight.Light, color = numberColor, lineHeight = 48.sp, maxLines = 1)
+                        }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(unitText, fontSize = 15.sp, color = TextSecondary, maxLines = 1)
@@ -445,17 +400,18 @@ fun SpeedCard(
                         }
                         if (settings.roadLimit && limit.roadLimit != null) RoadSign(limit.roadLimit, 40.dp)
                     }
-                    // A thin bar along the bottom keeps the "gauge" feel
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                        Box(
-                            Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp))
-                                .background(Color.White.copy(alpha = 0.08f))
-                                .drawBehind {
-                                    val w = size.width * (shownState.value / maxScale).coerceIn(0f, 1f)
-                                    val x = if (layoutDirection == LayoutDirection.Rtl) size.width - w else 0f
-                                    drawRect(arcColor, topLeft = Offset(x, 0f), size = Size(w, size.height))
-                                }
-                        )
+                    if (!semi && settings.speedStyle == SpeedStyle.GAUGE) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                            Box(
+                                Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp))
+                                    .background(Color.White.copy(alpha = 0.08f))
+                                    .drawBehind {
+                                        val w = size.width * LookMath.gaugeFraction(shownState.value, maxScale)
+                                        val x = if (layoutDirection == LayoutDirection.Rtl) size.width - w else 0f
+                                        drawRect(arcColor, topLeft = Offset(x, 0f), size = Size(w, size.height))
+                                    }
+                            )
+                        }
                     }
                     return@BoxWithConstraints
                 }
@@ -471,7 +427,16 @@ fun SpeedCard(
                             useCenter = false, topLeft = topLeft, size = arcSize,
                             style = Stroke(width = stroke, cap = StrokeCap.Round)
                         )
-                        val frac = (shownState.value / maxScale).coerceIn(0f, 1f)
+                        // Above the limit the track is red, like the red zone of a real dial
+                        if (redFrom != null) {
+                            drawArc(
+                                color = AlertRed.copy(alpha = 0.45f), startAngle = 135f + 270f * redFrom, sweepAngle = 270f * (1f - redFrom),
+                                useCenter = false, topLeft = topLeft, size = arcSize,
+                                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                            )
+                        }
+                        gaugeTicks(center = Offset(size.width / 2f, size.height / 2f), radius = d / 2f - stroke / 2f - 4.dp.toPx(), startDeg = 135f, sweepDeg = 270f)
+                        val frac = LookMath.gaugeFraction(shownState.value, maxScale)
                         if (frac > 0f) {
                             drawArc(
                                 color = arcColor, startAngle = 135f, sweepAngle = 270f * frac,
@@ -499,6 +464,75 @@ fun SpeedCard(
                 }
             }
         }
+    }
+}
+
+/** Ten steps round the dial: longer marks at every second one. Drawn just inside the track. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.gaugeTicks(center: Offset, radius: Float, startDeg: Float, sweepDeg: Float) {
+    if (radius < 18.dp.toPx()) return   // too small a dial: marks would only be clutter
+    for (i in 0..10) {
+        val major = i % 2 == 0
+        val len = (if (major) 7.dp else 4.dp).toPx()
+        val a = Math.toRadians((startDeg + sweepDeg * i / 10f).toDouble())
+        val cos = kotlin.math.cos(a).toFloat()
+        val sin = kotlin.math.sin(a).toFloat()
+        drawLine(
+            color = Color.White.copy(alpha = if (major) 0.42f else 0.22f),
+            start = Offset(center.x + cos * radius, center.y + sin * radius),
+            end = Offset(center.x + cos * (radius - len), center.y + sin * (radius - len)),
+            strokeWidth = (if (major) 2.dp else 1.5.dp).toPx(),
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+/**
+ * A half-circle speed gauge for low cards: the track runs from left to right over
+ * the top (never mirrored, like a real speedometer), with tick marks, a red zone
+ * above the limit, and the speed inside it.
+ */
+@Composable
+private fun SemiGauge(
+    value: androidx.compose.runtime.State<Float>,
+    maxScale: Float,
+    redFrom: Float?,
+    arcColor: Color,
+    number: String,
+    numberColor: Color,
+    height: Dp
+) {
+    val stroke = (height * 0.11f).coerceIn(6.dp, 10.dp)
+    val width = height * 2 - stroke
+    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+    // The number fills the inside of the dial whatever the text-size setting
+    val digits = (height.value * (if (number.length > 3) 0.36f else 0.44f) / fontScale).sp
+    Box(Modifier.width(width).height(height), contentAlignment = Alignment.BottomCenter) {
+        Canvas(Modifier.fillMaxSize()) {
+            val s = stroke.toPx()
+            val r = size.height - s            // centre line of the track
+            val center = Offset(size.width / 2f, size.height - s / 2f)
+            val topLeft = Offset(center.x - r, center.y - r)
+            val arcSize = Size(r * 2f, r * 2f)
+            drawArc(
+                color = Color.White.copy(alpha = 0.10f), startAngle = 180f, sweepAngle = 180f,
+                useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(width = s, cap = StrokeCap.Round)
+            )
+            if (redFrom != null) {
+                drawArc(
+                    color = AlertRed.copy(alpha = 0.45f), startAngle = 180f + 180f * redFrom, sweepAngle = 180f * (1f - redFrom),
+                    useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(width = s, cap = StrokeCap.Round)
+                )
+            }
+            gaugeTicks(center, r - s / 2f - 3.dp.toPx(), 180f, 180f)
+            val frac = LookMath.gaugeFraction(value.value, maxScale)
+            if (frac > 0f) {
+                drawArc(
+                    color = arcColor, startAngle = 180f, sweepAngle = 180f * frac,
+                    useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(width = s, cap = StrokeCap.Round)
+                )
+            }
+        }
+        Text(number, fontSize = digits, lineHeight = digits, fontWeight = FontWeight.Light, color = numberColor, maxLines = 1)
     }
 }
 
@@ -587,7 +621,7 @@ fun MusicCard(
                         contentDescription = stringResource(R.string.play_pause),
                         onClick = onPlayPause,
                         size = big,
-                        tint = Color.White,
+                        tint = onAccent(accent),
                         filled = accent
                     )
                     GlassIconButton(Icons.Rounded.SkipNext, stringResource(R.string.next), onNext, size = small)
@@ -711,13 +745,12 @@ fun PrayerCard(
 
 @Composable
 fun SmallPill(icon: ImageVector, label: String, accent: Color, onClick: () -> Unit) {
-    // At least 48 dp tall to tap while driving (the pill itself stays compact)
+    // At least 56 dp tall to tap while driving (the pill itself stays compact)
     Row(
         modifier = Modifier
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .heightIn(min = 56.dp)
+            .pressable(RoundedCornerShape(28.dp), onClick)
             .background(accent.copy(alpha = 0.2f))
-            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -798,7 +831,7 @@ fun TripCard(
                         Spacer(Modifier.width(8.dp))
                     }
                 }
-                ResetTripButton(onReset, accent, 44.dp)
+                ResetTripButton(onReset, accent, 52.dp)
             }
             Row(Modifier.fillMaxWidth()) {
                 Stat(stringResource(R.string.distance), distanceText(trip.distanceM, settings.useKmh), Modifier.weight(1f))

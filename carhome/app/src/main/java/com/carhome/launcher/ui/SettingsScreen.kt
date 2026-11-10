@@ -1,5 +1,28 @@
 package com.carhome.launcher.ui
 
+import com.carhome.launcher.AccentColors
+import com.carhome.launcher.CardFill
+import com.carhome.launcher.Corners
+import com.carhome.launcher.IconShape
+import com.carhome.launcher.IconSize
+import com.carhome.launcher.TopBar
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,9 +61,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Mosque
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
@@ -112,7 +133,6 @@ import com.carhome.launcher.VoiceStatus
 import com.carhome.launcher.VolumeBoost
 import com.carhome.launcher.prayerName
 import java.util.Locale
-import kotlin.math.roundToInt
 import androidx.compose.ui.text.input.TextFieldValue
 import com.carhome.launcher.PastTrip
 import com.carhome.launcher.TripHistory
@@ -282,7 +302,7 @@ private fun Hint(text: String) = Text(text, fontSize = 14.sp, color = TextSecond
 @Composable
 private fun Toggle(title: String, checked: Boolean, accent: Color, subtitle: String? = null, onChange: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onChange(!checked) }.padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(14.dp)).clickable { onChange(!checked) }.padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -292,7 +312,7 @@ private fun Toggle(title: String, checked: Boolean, accent: Color, subtitle: Str
         Switch(
             checked = checked,
             onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = accent)
+            colors = SwitchDefaults.colors(checkedThumbColor = onAccent(accent), checkedTrackColor = accent)
         )
     }
 }
@@ -308,14 +328,13 @@ private fun Chips(title: String?, labels: List<String>, selected: Int, accent: C
                 val on = i == selected
                 Box(
                     modifier = Modifier
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(24.dp))
+                        .height(56.dp)
+                        .pressable(RoundedCornerShape(28.dp)) { onSelect(i) }
                         .background(if (on) accent else Color.White.copy(alpha = 0.06f))
-                        .clickable { onSelect(i) }
-                        .padding(horizontal = 18.dp),
+                        .padding(horizontal = 20.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(label, fontSize = 16.sp, color = if (on) Color.White else TextPrimary, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
+                    Text(label, fontSize = 16.sp, color = if (on) onAccent(accent) else TextPrimary, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
                 }
             }
         }
@@ -326,9 +345,9 @@ private fun Chips(title: String?, labels: List<String>, selected: Int, accent: C
 private fun Stepper(title: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(title, fontSize = 17.sp, color = TextPrimary, modifier = Modifier.weight(1f))
-        GlassIconButton(Icons.Rounded.KeyboardArrowDown, "−", onMinus, size = 48.dp)
+        GlassIconButton(Icons.Rounded.KeyboardArrowDown, "−", onMinus, size = 56.dp)
         Text(value, fontSize = 22.sp, color = TextPrimary, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 16.dp))
-        GlassIconButton(Icons.Rounded.KeyboardArrowUp, "+", onPlus, size = 48.dp)
+        GlassIconButton(Icons.Rounded.KeyboardArrowUp, "+", onPlus, size = 56.dp)
     }
 }
 
@@ -336,14 +355,13 @@ private fun Stepper(title: String, value: String, onMinus: () -> Unit, onPlus: (
 private fun ActionButton(label: String, accent: Color, filled: Boolean = false, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .height(48.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .height(56.dp)
+            .pressable(RoundedCornerShape(28.dp), onClick)
             .background(if (filled) accent else accent.copy(alpha = 0.18f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 22.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, fontSize = 16.sp, color = if (filled) Color.White else TextPrimary, fontWeight = FontWeight.Medium)
+        Text(label, fontSize = 16.sp, color = if (filled) onAccent(accent) else TextPrimary, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -351,7 +369,7 @@ private fun ActionButton(label: String, accent: Color, filled: Boolean = false, 
 @Composable
 private fun AccessRow(icon: ImageVector, title: String, granted: Boolean?, accent: Color, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = accent, modifier = Modifier.size(26.dp))
@@ -374,7 +392,7 @@ private fun Radios(labels: List<String>, selected: Int, accent: Color, onSelect:
     Column {
         labels.forEachIndexed { i, label ->
             Row(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onSelect(i) }.padding(vertical = 2.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(14.dp)).clickable { onSelect(i) }.padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(selected = i == selected, onClick = { onSelect(i) }, colors = RadioButtonDefaults.colors(selectedColor = accent))
@@ -386,6 +404,77 @@ private fun Radios(labels: List<String>, selected: Int, accent: Color, onSelect:
 
 @Composable
 private fun minutes(n: Int) = stringResource(R.string.n_min, n)
+
+private val RAINBOW = listOf(0f, 60f, 120f, 180f, 240f, 300f, 360f).map { Color(AccentColors.hsvToArgb(it % 360f, 1f, 1f)) }
+
+private fun accentLabel(key: String): Int = when (key) {
+    "blue" -> R.string.accent_blue
+    "ice" -> R.string.accent_ice
+    "cyan" -> R.string.accent_cyan
+    "teal" -> R.string.accent_teal
+    "mint" -> R.string.accent_mint
+    "green" -> R.string.accent_green
+    "lime" -> R.string.accent_lime
+    "amber" -> R.string.accent_amber
+    "orange" -> R.string.accent_orange
+    "coral" -> R.string.accent_coral
+    "red" -> R.string.accent_red
+    "magenta" -> R.string.accent_magenta
+    "violet" -> R.string.accent_violet
+    "indigo" -> R.string.accent_indigo
+    "gold" -> R.string.accent_gold
+    "pearl" -> R.string.accent_pearl
+    else -> R.string.accent_custom
+}
+
+private fun themeLabel(key: String): Int = when (key) {
+    "midnight" -> R.string.theme_midnight
+    "ice" -> R.string.theme_ice
+    "sunset" -> R.string.theme_sunset
+    "carbon" -> R.string.theme_carbon
+    "emerald" -> R.string.theme_emerald
+    else -> R.string.theme_royal
+}
+
+/**
+ * A slider over a colour gradient: tap or drag anywhere on it. [value] is 0–1.
+ * Never mirrored, so the colours stay where the finger is in Arabic too.
+ */
+@Composable
+private fun GradientSlider(title: String, value: Float, colors: List<Color>, onChange: (Float) -> Unit) {
+    val current by rememberUpdatedState(onChange)
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, fontSize = 15.sp, color = TextSecondary)
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            BoxWithConstraints(Modifier.fillMaxWidth().height(56.dp)) {
+                val thumb = 36.dp
+                val thumbPx = with(LocalDensity.current) { thumb.toPx() }
+                val usable = (constraints.maxWidth - thumbPx).coerceAtLeast(1f)
+                fun at(x: Float) = ((x - thumbPx / 2f) / usable).coerceIn(0f, 1f)
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .pointerInput(usable) { detectTapGestures { o -> current(at(o.x)) } }
+                        .pointerInput(usable) {
+                            detectHorizontalDragGestures { change, _ -> change.consume(); current(at(change.position.x)) }
+                        },
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth().height(20.dp).clip(RoundedCornerShape(10.dp))
+                            .background(Brush.horizontalGradient(colors))
+                    )
+                    Box(
+                        Modifier
+                            .offset { IntOffset((value.coerceIn(0f, 1f) * usable).roundToInt(), 0) }
+                            .size(thumb).clip(CircleShape).background(Color.White)
+                            .border(3.dp, Color(0xFF0B1220), CircleShape)
+                    )
+                }
+            }
+        }
+    }
+}
 
 // ── Pages ─────────────────────────────────────────────────────────────────────
 
@@ -410,6 +499,18 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
         }
         Toggle(stringResource(R.string.tile_labels), s.showTileLabels, a) { v -> act.update { it.copy(showTileLabels = v) } }
     }
+    Section(stringResource(R.string.tile_icons)) {
+        Chips(
+            stringResource(R.string.icon_size),
+            listOf(stringResource(R.string.icon_small), stringResource(R.string.icon_medium), stringResource(R.string.icon_large)),
+            IconSize.entries.indexOf(s.iconSize), a
+        ) { i -> act.update { it.copy(iconSize = IconSize.entries[i]) } }
+        Chips(
+            stringResource(R.string.icon_shape),
+            listOf(stringResource(R.string.shape_original), stringResource(R.string.shape_circle), stringResource(R.string.shape_rounded)),
+            IconShape.entries.indexOf(s.iconShape), a
+        ) { i -> act.update { it.copy(iconShape = IconShape.entries[i]) } }
+    }
     Section(stringResource(R.string.info_cards)) {
         Hint(stringResource(R.string.info_cards_hint, MAX_CARDS))
         val order = s.cards + CardType.entries.filter { it !in s.cards }
@@ -433,24 +534,38 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
                             }
                         },
                     contentAlignment = Alignment.Center
-                ) { if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+                ) { if (on) Icon(Icons.Rounded.Check, null, tint = onAccent(a), modifier = Modifier.size(22.dp)) }
                 Spacer(Modifier.width(14.dp))
                 Text(stringResource(cardLabel(c)), fontSize = 17.sp, color = if (on) TextPrimary else TextSecondary, modifier = Modifier.weight(1f))
                 if (on) {
                     GlassIconButton(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up), {
                         if (idx > 0) act.update { cur -> cur.copy(cards = cur.cards.toMutableList().apply { add(idx - 1, removeAt(idx)) }) }
-                    }, size = 44.dp)
+                    }, size = 56.dp)
                     Spacer(Modifier.width(8.dp))
                     GlassIconButton(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down), {
                         if (idx < s.cards.size - 1) act.update { cur -> cur.copy(cards = cur.cards.toMutableList().apply { add(idx + 1, removeAt(idx)) }) }
-                    }, size = 44.dp)
+                    }, size = 56.dp)
                 }
             }
         }
     }
     Section(stringResource(R.string.top_bar)) {
-        Toggle(stringResource(R.string.show_weather), s.showWeather, a) { v -> act.update { it.copy(showWeather = v) } }
-        Toggle(stringResource(R.string.show_prayer_chip), s.showPrayerChip, a) { v -> act.update { it.copy(showPrayerChip = v) } }
+        Chips(
+            stringResource(R.string.top_bar_shows),
+            listOf(
+                stringResource(R.string.top_weather), stringResource(R.string.top_prayer), stringResource(R.string.top_date),
+                stringResource(R.string.top_music), stringResource(R.string.top_trip), stringResource(R.string.top_none)
+            ),
+            TopBar.entries.indexOf(s.topBar), a
+        ) { i -> act.update { it.copy(topBar = TopBar.entries[i]) } }
+        if (s.topBar == TopBar.WEATHER) Hint(stringResource(R.string.top_weather_hint))
+        if (s.topBar == TopBar.MUSIC && !st.hasMusicAccess) {
+            AccessRow(Icons.Rounded.MusicNote, stringResource(R.string.enable_music_hint), false, a, act.musicAccess)
+        }
+        // The next prayer can also sit beside whatever the bar shows
+        if (s.topBar != TopBar.PRAYER) {
+            Toggle(stringResource(R.string.show_prayer_chip), s.showPrayerChip, a) { v -> act.update { it.copy(showPrayerChip = v) } }
+        }
     }
     Section(stringResource(R.string.layout)) {
         Chips(stringResource(R.string.cards_side), listOf(stringResource(R.string.side_start), stringResource(R.string.side_end)), Side.entries.indexOf(s.infoSide), a) { i ->
@@ -761,7 +876,7 @@ private fun ReminderSection(st: SettingsState, act: SettingsActions) {
                 // Renewed: moves it to the next year (or the next tyre / service interval)
                 ActionButton(stringResource(R.string.reminder_renewed), a) { act.renewReminder(r.id) }
                 Spacer(Modifier.width(10.dp))
-                GlassIconButton(Icons.Rounded.Close, stringResource(R.string.reminder_delete), { act.removeReminder(r.id) }, size = 48.dp)
+                GlassIconButton(Icons.Rounded.Close, stringResource(R.string.reminder_delete), { act.removeReminder(r.id) }, size = 56.dp)
             }
         }
 
@@ -934,7 +1049,7 @@ private fun StartupPage(st: SettingsState, act: SettingsActions) {
                     )
                 }
                 if (s.autoApp.isNotEmpty()) {
-                    GlassIconButton(Icons.Rounded.Close, stringResource(R.string.remove), { act.update { it.copy(autoApp = "") } }, size = 44.dp)
+                    GlassIconButton(Icons.Rounded.Close, stringResource(R.string.remove), { act.update { it.copy(autoApp = "") } }, size = 56.dp)
                     Spacer(Modifier.width(10.dp))
                 }
                 ActionButton(stringResource(R.string.choose), a, onClick = act.pickAutoApp)
@@ -950,23 +1065,96 @@ private fun StartupPage(st: SettingsState, act: SettingsActions) {
 private fun DisplayPage(st: SettingsState, act: SettingsActions) {
     val s = st.settings
     val a = st.accent
+    Section(stringResource(R.string.theme_presets)) {
+        Hint(stringResource(R.string.theme_presets_hint))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AccentColors.THEMES.forEach { th ->
+                val on = s.accent == th.accent && s.background == th.background && s.cardFill == th.cardFill && s.corners == th.corners
+                val c = Color(th.accent)
+                Row(
+                    modifier = Modifier
+                        .height(64.dp)
+                        .pressable(RoundedCornerShape(20.dp)) {
+                            act.update { it.copy(accent = th.accent, background = th.background, cardFill = th.cardFill, corners = th.corners, songColours = false) }
+                        }
+                        .background(Color(0xFF0E1525))
+                        .border(if (on) 3.dp else 1.dp, if (on) c else Color.White.copy(alpha = 0.14f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(c))
+                    Spacer(Modifier.width(12.dp))
+                    Text(stringResource(themeLabel(th.key)), fontSize = 16.sp, color = Color(0xFFF3F5FA), fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
+                }
+            }
+        }
+    }
     Section(stringResource(R.string.accent_color)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            ACCENTS.forEach { c ->
-                val color = Color(c)
-                val selected = c == s.accent
+        // Sliders keep their own position: a colour stored as 8-bit loses a little of it
+        var custom by remember { mutableStateOf(!AccentColors.isPreset(s.accent)) }
+        var hue by remember { mutableFloatStateOf(AccentColors.sliders(s.accent).first) }
+        var vivid by remember { mutableFloatStateOf(AccentColors.sliders(s.accent).second) }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AccentColors.PRESETS.forEach { preset ->
+                val color = Color(preset.argb)
+                val selected = preset.argb == s.accent
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
+                        .size(56.dp)
+                        .pressable(CircleShape) { custom = false; act.update { it.copy(accent = preset.argb) } }
                         .background(color)
-                        .border(if (selected) 3.dp else 0.dp, Color.White, CircleShape)
-                        .clickable { act.update { it.copy(accent = c) } },
+                        .border(if (selected) 3.dp else 0.dp, TextPrimary, CircleShape),
                     contentAlignment = Alignment.Center
-                ) { if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White) }
+                ) { if (selected) Icon(Icons.Rounded.Check, stringResource(accentLabel(preset.key)), tint = onAccent(color)) }
+            }
+            // Any other colour: opens the two sliders
+            val isCustom = !AccentColors.isPreset(s.accent)
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .pressable(CircleShape) {
+                        custom = true
+                        val (h, v) = AccentColors.sliders(s.accent)
+                        hue = h; vivid = v
+                    }
+                    .background(Brush.sweepGradient(RAINBOW))
+                    .border(if (isCustom) 3.dp else 0.dp, TextPrimary, CircleShape),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Rounded.Palette, stringResource(R.string.accent_custom), tint = Color.White) }
+        }
+        val name = AccentColors.PRESETS.firstOrNull { it.argb == s.accent }?.let { stringResource(accentLabel(it.key)) }
+            ?: stringResource(R.string.accent_custom)
+        Text(name, fontSize = 15.sp, color = TextSecondary)
+        if (custom) {
+            GradientSlider(stringResource(R.string.accent_hue), hue / 360f, RAINBOW) { f ->
+                hue = (f * 360f).coerceIn(0f, 359.9f)
+                act.update { it.copy(accent = AccentColors.custom(hue, vivid)) }
+            }
+            GradientSlider(
+                stringResource(R.string.accent_vivid), vivid,
+                listOf(Color(AccentColors.custom(hue, 0f)), Color(AccentColors.custom(hue, 1f)))
+            ) { f ->
+                vivid = f
+                act.update { it.copy(accent = AccentColors.custom(hue, vivid)) }
             }
         }
         Toggle(stringResource(R.string.song_colours), s.songColours, a, stringResource(R.string.song_colours_hint)) { v -> act.update { it.copy(songColours = v) } }
+    }
+    Section(stringResource(R.string.card_style)) {
+        Chips(
+            stringResource(R.string.card_fill),
+            listOf(stringResource(R.string.fill_clear), stringResource(R.string.fill_glass), stringResource(R.string.fill_frosted), stringResource(R.string.fill_solid)),
+            CardFill.entries.indexOf(s.cardFill), a
+        ) { i -> act.update { it.copy(cardFill = CardFill.entries[i]) } }
+        Hint(stringResource(R.string.card_fill_hint))
+        Chips(
+            stringResource(R.string.corners),
+            listOf(stringResource(R.string.corners_square), stringResource(R.string.corners_rounded), stringResource(R.string.corners_extra)),
+            Corners.entries.indexOf(s.corners), a
+        ) { i -> act.update { it.copy(corners = Corners.entries[i]) } }
+        Toggle(stringResource(R.string.high_contrast), s.highContrast, a, stringResource(R.string.high_contrast_hint)) { v ->
+            act.update { it.copy(highContrast = v) }
+        }
     }
     Section(stringResource(R.string.background)) {
         Chips(null, listOf(stringResource(R.string.bg_classic), stringResource(R.string.bg_sky), stringResource(R.string.bg_photo)), Background.entries.indexOf(s.background), a) { i ->
@@ -1037,7 +1225,7 @@ private fun SmartPage(st: SettingsState, act: SettingsActions) {
                         Text(p.name, fontSize = 17.sp, color = TextPrimary)
                         Text(if (p.lat != null) stringResource(R.string.place_saved_location) else p.address, fontSize = 13.sp, color = TextSecondary)
                     }
-                    GlassIconButton(Icons.Rounded.Close, stringResource(R.string.remove), { act.removePlace(p.id) }, size = 44.dp)
+                    GlassIconButton(Icons.Rounded.Close, stringResource(R.string.remove), { act.removePlace(p.id) }, size = 56.dp)
                 }
             }
             ActionButton(stringResource(R.string.add_place), a, onClick = { addingPlace = true })
@@ -1052,7 +1240,7 @@ private fun SmartPage(st: SettingsState, act: SettingsActions) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 st.parkedOnly.forEach { pkg ->
                     Row(
-                        modifier = Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(Color.White.copy(alpha = 0.06f))
+                        modifier = Modifier.height(56.dp).clip(RoundedCornerShape(28.dp)).background(Color.White.copy(alpha = 0.06f))
                             .clickable { act.toggleParkedOnly(pkg) }.padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

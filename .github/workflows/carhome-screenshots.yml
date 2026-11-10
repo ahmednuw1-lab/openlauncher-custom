@@ -4,9 +4,14 @@ name: CarHome screenshots
 
 on:
   workflow_dispatch:
+    inputs:
+      set:
+        description: 'new = what is new in this version, all = every screen'
+        default: 'new'
   push:
     paths:
       - 'carhome/tools/screenshots.sh'
+      - 'carhome/tools/shots-new.sh'
       - '.github/workflows/carhome-screenshots.yml'
 
 permissions:
@@ -63,7 +68,7 @@ jobs:
           working-directory: carhome
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
-          script: bash tools/screenshots.sh
+          script: SHOTS=${{ inputs.set == 'all' && 'all' || 'new' }} bash tools/screenshots.sh
 
       - name: Publish screenshots
         env:

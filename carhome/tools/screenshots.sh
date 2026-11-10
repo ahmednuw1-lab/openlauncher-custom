@@ -81,6 +81,16 @@ CTILES="${APPS6}place:home1|smart"
 # Al-Ahsa (Hofuf) — so weather and prayer times are real for your area
 adb emu geo fix 49.5886 25.3833
 
+# By default only what is new in the current version is captured (tools/shots-new.sh);
+# SHOTS=all runs every screen below as well.
+logs() {
+  adb logcat -d -b crash > "$OUT/crash-log.txt" || true
+  adb logcat -d | grep -E "AndroidRuntime|CarHome|carhome" | tail -300 > "$OUT/app-log.txt" || true
+  ls -la "$OUT"
+}
+source tools/shots-new.sh
+if [ "${SHOTS:-new}" != "all" ]; then logs; exit 0; fi
+
 # 1–2: the default look (same as 1.1), then over the speed limit
 prefs "$DEFAULTS" "$APPS7" "$BOOT"
 start
@@ -213,6 +223,4 @@ shot 19-settings-updates-backup
 adb shell input keyevent KEYCODE_BACK
 
 # Crash and CarHome log lines, to catch problems a screenshot can't show
-adb logcat -d -b crash > "$OUT/crash-log.txt" || true
-adb logcat -d | grep -E "AndroidRuntime|CarHome|carhome" | tail -300 > "$OUT/app-log.txt" || true
-ls -la "$OUT"
+logs

@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.carhome.launcher.AccentColors
 import com.carhome.launcher.Background
+import com.carhome.launcher.CardFill
+import com.carhome.launcher.Corners
+import com.carhome.launcher.IconShape
+import com.carhome.launcher.IconSize
+import com.carhome.launcher.LauncherSettings
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.toArgb
 import com.carhome.launcher.WeatherKind
 import com.carhome.launcher.weatherKind
 import kotlinx.coroutines.delay
@@ -52,22 +61,55 @@ import kotlin.random.Random
 
 val BgTop = Color(0xFF070A12)
 val BgBottom = Color(0xFF111A2E)
-val GlassFill = Color.White.copy(alpha = 0.06f)
-val GlassStroke = Color.White.copy(alpha = 0.09f)
-val TextPrimary = Color(0xFFF3F5FA)
-val TextSecondary = Color(0xFFA7B0C2)
 val AlertRed = Color(0xFFEF4444)
 val OkGreen = Color(0xFF22C55E)
 val WarnAmber = Color(0xFFF59E0B)
 
-val CardShape = RoundedCornerShape(28.dp)
+/**
+ * The look the user chose in Settings → Display: how solid the cards are, how
+ * round the corners, and the high-contrast mode. Held as Compose state, so every
+ * card, tile and text follows a change at once without being passed around.
+ */
+object Look {
+    var cardFill by mutableStateOf(CardFill.GLASS)
+    var corners by mutableStateOf(Corners.ROUNDED)
+    var highContrast by mutableStateOf(false)
+    var iconSize by mutableStateOf(IconSize.MEDIUM)
+    var iconShape by mutableStateOf(IconShape.ORIGINAL)
+
+    fun apply(s: LauncherSettings) {
+        cardFill = s.cardFill; corners = s.corners; highContrast = s.highContrast
+        iconSize = s.iconSize; iconShape = s.iconShape
+    }
+
+    /** A corner radius that follows the corner style (28 dp is the standard card). */
+    fun radius(base: Dp): Dp = base * (corners.dp / 28f)
+}
+
+val GlassFill: Color
+    get() = when (Look.cardFill) {
+        CardFill.CLEAR -> Color.White.copy(alpha = if (Look.highContrast) 0.05f else 0.025f)
+        CardFill.GLASS -> if (Look.highContrast) Color(0xB30A0F1C) else Color.White.copy(alpha = 0.06f)
+        CardFill.FROSTED -> Color(0xFF0E1525).copy(alpha = if (Look.highContrast) 0.82f else 0.62f)
+        CardFill.SOLID -> Color(0xFF111827).copy(alpha = 0.96f)
+    }
+val GlassStroke: Color
+    get() = Color.White.copy(alpha = if (Look.highContrast) 0.34f else if (Look.cardFill == CardFill.CLEAR) 0.14f else 0.09f)
+val TextPrimary: Color get() = if (Look.highContrast) Color.White else Color(0xFFF3F5FA)
+val TextSecondary: Color get() = if (Look.highContrast) Color(0xFFDDE3EE) else Color(0xFFA7B0C2)
+
+val CardShape: Shape get() = RoundedCornerShape(Look.radius(28.dp))
+
+/** Text and icons drawn on top of the accent colour: dark on light accents, white on the rest. */
+fun onAccent(accent: Color): Color =
+    if (AccentColors.darkTextOn(accent.toArgb().toLong() and 0xFFFFFFFFL)) Color(AccentColors.DARK_TEXT) else Color.White
 
 @Composable
 fun CarHomeTheme(accent: Color, content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = accent,
-            onPrimary = Color.White,
+            onPrimary = onAccent(accent),
             background = BgTop,
             surface = Color(0xFF141B2B),
             onSurface = TextPrimary,
@@ -234,6 +276,17 @@ fun rememberPressScale(interaction: MutableInteractionSource): Float {
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.95f else 1f, label = "press")
     return scale
+}
+
+/**
+ * A tappable pill (chip, button): shrinks slightly while pressed, so a tap is felt
+ * without looking twice. Put it before the clip and background of the pill.
+ */
+@Composable
+fun Modifier.pressable(shape: Shape, onClick: () -> Unit): Modifier {
+    val interaction = remember { MutableInteractionSource() }
+    val scale = rememberPressScale(interaction)
+    return this.scale(scale).clip(shape).clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
 }
 
 /** Round glass icon button used in headers. */

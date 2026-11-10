@@ -1,5 +1,8 @@
 package com.carhome.launcher.ui
 
+import com.carhome.launcher.TopBar
+import com.carhome.launcher.IconShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -255,29 +258,38 @@ private fun MainColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            when {
-                s.showWeather -> WeatherStrip(
+            // The pill: whatever the user chose for the top bar
+            val pill = Modifier.weight(1f)
+            when (s.topBar) {
+                TopBar.WEATHER -> WeatherStrip(
                     weather = st.weather,
                     hasLocation = st.hasLocation,
                     use24h = s.use24h,
                     accent = st.accent,
-                    compact = st.driving || s.showPrayerChip,
+                    hideHours = st.driving,   // while moving: only the weather now
                     onRequestLocation = act.requestLocation,
-                    modifier = Modifier.weight(1f)
+                    modifier = pill
                 )
-                !s.showPrayerChip -> Text(
+                TopBar.PRAYER -> PrayerChip(st.prayer, s.use24h, st.accent, pill)
+                TopBar.DATE -> DatePill(st.accent, pill)
+                TopBar.MUSIC -> MusicPill(
+                    st.nowPlaying, st.hasMusicAccess, st.accent,
+                    act.requestMusicAccess, act.playPause, act.next, act.previous, pill
+                )
+                TopBar.TRIP -> TripPill(st.trip, s, st.accent, pill)
+                TopBar.NONE -> if (!s.showPrayerChip) Text(
                     text = stringResource(R.string.hint_tiles),
                     color = TextSecondary,
                     fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = pill
                 )
             }
-            if (s.showPrayerChip) {
+            if (s.showPrayerChip && s.topBar != TopBar.PRAYER) {
                 PrayerChip(
                     st.prayer, s.use24h, st.accent,
-                    if (s.showWeather) Modifier.widthIn(max = 240.dp) else Modifier.weight(1f)
+                    if (s.topBar != TopBar.NONE) Modifier.widthIn(max = 240.dp) else Modifier.weight(1f)
                 )
             }
             GlassIconButton(Icons.Rounded.Apps, stringResource(R.string.all_apps), act.openApps)
@@ -376,7 +388,7 @@ private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modif
                 if (n.kind == NoticeKind.BREAK) Icons.Rounded.Snooze else Icons.Rounded.Close,
                 stringResource(R.string.dismiss),
                 { act.dismissNotice(n) },
-                size = 44.dp
+                size = 56.dp
             )
         }
     }
@@ -476,12 +488,12 @@ private fun AppTile(
     val scale = rememberPressScale(interaction)
     val accent = st.accent
     val labels = st.settings.showTileLabels
-    val baseIcon = if (st.driving) 84.dp else 68.dp
+    val baseIcon = (if (st.driving) 84.dp else 68.dp) * st.settings.iconSize.scale
     val isApp = value.isNotEmpty() && value != TILE_SMART && !value.startsWith(TILE_PLACE)
     BoxWithConstraints(
         modifier = modifier
             .scale(scale)
-            .glass(RoundedCornerShape(26.dp))
+            .glass(RoundedCornerShape(Look.radius(26.dp)))
             .combinedClickable(
                 interactionSource = interaction,
                 indication = null,
@@ -502,7 +514,7 @@ private fun AppTile(
                     modifier = Modifier.size(minOf(56.dp, iconSize)).clip(CircleShape).background(accent.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Add, null, tint = accent, modifier = Modifier.size(30.dp))
+                    Icon(Icons.Rounded.Add, null, tint = accent, modifier = Modifier.size(minOf(30.dp, iconSize * 0.6f)))
                 }
                 if (labels) {
                     Spacer(Modifier.height(10.dp))
@@ -567,7 +579,18 @@ private fun AppTile(
 @Composable
 private fun TileBody(app: AppEntry, labels: Boolean, iconSize: androidx.compose.ui.unit.Dp) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(10.dp)) {
-        Image(bitmap = app.icon, contentDescription = app.label, modifier = Modifier.size(iconSize))
+        Image(
+            bitmap = app.icon, contentDescription = app.label,
+            contentScale = if (Look.iconShape == IconShape.ORIGINAL) ContentScale.Fit else ContentScale.Crop,
+            modifier = Modifier.size(iconSize).let { m ->
+                // One shape for every icon, when the user wants a tidy grid
+                when (Look.iconShape) {
+                    IconShape.ORIGINAL -> m
+                    IconShape.CIRCLE -> m.clip(CircleShape)
+                    IconShape.ROUNDED -> m.clip(RoundedCornerShape(iconSize * 0.24f))
+                }
+            }
+        )
         if (labels) {
             Spacer(Modifier.height(10.dp))
             Text(app.label, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)

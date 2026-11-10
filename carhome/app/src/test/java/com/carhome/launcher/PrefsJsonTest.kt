@@ -82,6 +82,43 @@ class PrefsJsonTest {
         AlertMode.entries, CardType.entries, Side.entries, ColumnWidth.entries, TextSize.entries,
         SpeedStyle.entries, AppLanguage.entries, NoRoadData.entries, PrayerMethod.entries,
         TripReset.entries, NightMode.entries, BubbleSize.entries, VolumeBoost.entries,
-        Background.entries, SpeedSource.entries, SoundChannel.entries
+        Background.entries, SpeedSource.entries, SoundChannel.entries,
+        TopBar.entries, CardFill.entries, Corners.entries, IconSize.entries, IconShape.entries
     ).flatten().map { it.name }.toSet()
+
+    // ── 1.2.11: top bar choice and the look ──
+
+    @Test fun lookSettingsRoundTrip() {
+        val s = defaults.copy(
+            topBar = TopBar.MUSIC, cardFill = CardFill.SOLID, corners = Corners.SQUARE, highContrast = true,
+            iconSize = IconSize.LARGE, iconShape = IconShape.CIRCLE, accent = 0xFF7DD3FC
+        )
+        assertEquals(s, roundTrip(s))
+    }
+
+    @Test fun olderSettingsWithWeatherOnKeepTheWeatherStrip() {
+        val o = JSONObject().put("showWeather", true)
+        assertEquals(TopBar.WEATHER, settingsFromJson(o).topBar)
+    }
+
+    @Test fun olderSettingsWithWeatherOffKeepAnEmptyTopBar() {
+        val o = JSONObject().put("showWeather", false)
+        val s = settingsFromJson(o)
+        assertEquals(TopBar.NONE, s.topBar)
+        assertEquals(false, s.showWeather)
+    }
+
+    @Test fun theNewTopBarChoiceWinsOverTheOldSwitch() {
+        val o = JSONObject().put("showWeather", true).put("topBar", "DATE")
+        assertEquals(TopBar.DATE, settingsFromJson(o).topBar)
+    }
+
+    @Test fun aSavedAccentIsMadeOpaque() {
+        assertEquals(0xFF22D3EE, settingsFromJson(JSONObject().put("accent", 0x0022D3EEL)).accent)
+    }
+
+    @Test fun anyCustomAccentRoundTrips() {
+        val c = AccentColors.custom(200f, 0.6f)
+        assertEquals(c, roundTrip(defaults.copy(accent = c)).accent)
+    }
 }

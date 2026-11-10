@@ -208,8 +208,13 @@ class MainActivity : ComponentActivity() {
             locationPermission.launch(locationPerms)
         }
 
+        // The look (card style, corners, contrast, icons) before the first frame is drawn
+        com.carhome.launcher.ui.Look.apply(vm.settings.value)
         setContent {
             val s by vm.settings.collectAsStateWithLifecycle()
+            LaunchedEffect(s.cardFill, s.corners, s.highContrast, s.iconSize, s.iconShape) {
+                com.carhome.launcher.ui.Look.apply(s)
+            }
             val tiles by vm.tiles.collectAsStateWithLifecycle()
             val apps by vm.apps.collectAsStateWithLifecycle()
             val places by vm.places.collectAsStateWithLifecycle()

@@ -141,10 +141,11 @@ private fun firstHourBelow(root: JSONObject, nowTime: String, key: String, limit
     }.getOrNull()
 
 /**
- * The 5 hourly slots after the current time. With timezone=auto every time is a
+ * The next 24 hourly slots after the current time (the top bar shows as many as
+ * fit and scrolls through the rest; the weather card shows the first few). With timezone=auto every time is a
  * local "yyyy-MM-ddTHH:mm" string, so plain string comparison orders them.
  */
-private fun parseNextHours(root: JSONObject, nowTime: String, count: Int = 5): List<HourForecast> =
+private fun parseNextHours(root: JSONObject, nowTime: String, count: Int = 24): List<HourForecast> =
     runCatching {
         val hourly = root.getJSONObject("hourly")
         val times = hourly.getJSONArray("time")
