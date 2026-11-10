@@ -1061,6 +1061,7 @@ private fun StartupPage(st: SettingsState, act: SettingsActions) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DisplayPage(st: SettingsState, act: SettingsActions) {
     val s = st.settings
