@@ -48,6 +48,13 @@ jobs:
           ./gradlew --no-daemon --write-verification-metadata sha256 testDebugUnitTest assembleRelease assembleDebug
           grep -c '<sha256' gradle/verification-metadata.xml
 
+      # Also in the log (compressed, as text), for when the artifact can't be downloaded
+      - name: Print the file
+        run: |
+          echo "-----BEGIN METADATA-----"
+          gzip -9 -c gradle/verification-metadata.xml | base64 -w 100
+          echo "-----END METADATA-----"
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: carhome-verification-metadata
