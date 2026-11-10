@@ -56,7 +56,7 @@ private fun httpGet(url: String): String? {
         conn.connectTimeout = 10_000
         conn.readTimeout = 15_000
         conn.setRequestProperty("User-Agent", "CarHome/1.2 (Android launcher)")
-        if (conn.responseCode != 200) null else conn.inputStream.bufferedReader().use { it.readText() }
+        if (conn.responseCode != 200) null else conn.inputStream.use { Net.readCapped(it, Net.MAX_WEATHER) }
     } finally {
         conn.disconnect()
     }

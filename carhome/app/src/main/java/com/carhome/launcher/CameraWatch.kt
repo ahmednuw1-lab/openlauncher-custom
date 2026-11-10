@@ -84,7 +84,7 @@ class CameraWatch(private val core: Core) {
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             conn.outputStream.use { it.write(("data=" + URLEncoder.encode(q, "UTF-8")).toByteArray()) }
             if (conn.responseCode != 200) return null
-            val root = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            val root = JSONObject(conn.inputStream.use { Net.readCapped(it, Net.MAX_MAP) })
             // A busy map server answers "200" with a remark and no data: that's a failure, not "no cameras"
             if (root.optString("remark").isNotBlank()) return null
             val els = root.optJSONArray("elements") ?: return null

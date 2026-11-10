@@ -1,0 +1,15 @@
+# Dependabot opens a pull request when a library CarHome uses, or a GitHub
+# Action its workflows use, has a newer version (checked once a month), and
+# right away when one has a known security problem.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /carhome
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3

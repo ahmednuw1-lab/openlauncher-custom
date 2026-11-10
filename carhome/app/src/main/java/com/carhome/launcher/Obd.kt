@@ -143,6 +143,8 @@ class ObdClient(private val core: Core) {
                     if (b < 0) throw java.io.IOException("adapter closed")
                     val ch = b.toChar()
                     if (ch == '>') break
+                    // A real reply is a few dozen characters; a flood means a faulty or hostile adapter
+                    if (sb.length >= Net.MAX_OBD_REPLY) throw java.io.IOException("reply too long")
                     sb.append(ch)
                 } else {
                     // No '>' prompt in time: replies would get out of step, so reconnect

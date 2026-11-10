@@ -87,7 +87,7 @@ class RoadLimits {
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                 conn.outputStream.use { it.write(("data=" + URLEncoder.encode(q, "UTF-8")).toByteArray()) }
                 if (conn.responseCode != 200) return@runCatching null
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                val body = conn.inputStream.use { Net.readCapped(it, Net.MAX_MAP) }
                 parse(body)
             } finally {
                 conn.disconnect()

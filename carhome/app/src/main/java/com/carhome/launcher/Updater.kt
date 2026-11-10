@@ -4,7 +4,9 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -33,7 +35,11 @@ data class UpdateState(
 )
 
 /** A CarHome release on GitHub. */
-data class UpdateRelease(val versionName: String?, val versionCode: Int?, val apkUrl: String, val apkSize: Long, val notes: String? = null) {
+data class UpdateRelease(
+    val versionName: String?, val versionCode: Int?, val apkUrl: String, val apkSize: Long, val notes: String? = null,
+    /** SHA-256 of the APK as published by GitHub (lower-case hex), when the release carries one */
+    val sha256: String? = null
+) {
     companion object {
         /** Reads GitHub's "latest release" answer; null when it has no usable carhome.apk. */
         fun fromJson(o: JSONObject): UpdateRelease? {
@@ -48,7 +54,8 @@ data class UpdateRelease(val versionName: String?, val versionCode: Int?, val ap
                     versionCode = UpdateCheck.versionCodeFrom(o.optString("body")),
                     apkUrl = url,
                     apkSize = a.optLong("size", -1L),
-                    notes = o.optString("body").ifBlank { null }
+                    notes = o.optString("body").ifBlank { null },
+                    sha256 = Net.sha256From(a.optString("digest"))
                 )
             }
             return null
@@ -130,8 +137,21 @@ class Updater(private val core: Core) {
         }
         job = core.scope.launch {
             _state.value = UpdateState(UpdateStage.DOWNLOADING, rel.versionName, 0, rel.notes)
-            val ok = withContext(Dispatchers.IO) { runCatching { download(rel) }.getOrDefault(false) }
-            if (!ok) { _state.value = UpdateState(UpdateStage.FAILED, rel.versionName, notes = rel.notes); return@launch }
+            val ok = withContext(Dispatchers.IO) {
+                // Downloaded (or kept from an earlier try), then checked: the right size and
+                // digest, CarHome's own package, a newer version, and CarHome's signing key.
+                // A file that fails is deleted and fetched once more before giving up.
+                runCatching {
+                    (download(rel) && verified(rel)) || run {
+                        apkFor(rel).delete()
+                        download(rel) && verified(rel)
+                    }
+                }.getOrDefault(false)
+            }
+            if (!ok) {
+                runCatching { apkFor(rel).delete() }
+                _state.value = UpdateState(UpdateStage.FAILED, rel.versionName, notes = rel.notes); return@launch
+            }
             _state.value = UpdateState(UpdateStage.INSTALLING, rel.versionName, 100, rel.notes)
             val started = withContext(Dispatchers.IO) { runCatching { startInstall(apkFor(rel)) }.isSuccess }
             if (!started) _state.value = UpdateState(UpdateStage.FAILED, rel.versionName, notes = rel.notes)
@@ -151,7 +171,9 @@ class Updater(private val core: Core) {
 
     private fun download(rel: UpdateRelease): Boolean {
         val out = apkFor(rel)
-        if (rel.apkSize > 0 && out.length() == rel.apkSize) return true   // already downloaded
+        if (!Net.apkSizeAllowed(rel.apkSize)) return false
+        // Already downloaded (it is still verified before it is installed)
+        if (rel.apkSize > 0 && out.length() == rel.apkSize) return true
         // Clear downloads of other versions
         dir.listFiles()?.forEach { if (it != out) it.delete() }
         val conn = URL(rel.apkUrl).openConnection() as HttpURLConnection
@@ -161,7 +183,9 @@ class Updater(private val core: Core) {
             conn.setRequestProperty("User-Agent", "CarHome (Android launcher)")
             if (conn.responseCode != 200) return false
             val total = if (rel.apkSize > 0) rel.apkSize else conn.contentLengthLong
+            if (!Net.apkSizeAllowed(total)) return false
             val tmp = File(dir, "download.part")
+            var tooBig = false
             conn.inputStream.use { input ->
                 tmp.outputStream().use { output ->
                     val buf = ByteArray(64 * 1024)
@@ -170,8 +194,10 @@ class Updater(private val core: Core) {
                     while (true) {
                         val n = input.read(buf)
                         if (n < 0) break
-                        output.write(buf, 0, n)
                         done += n
+                        // Never write more than was announced, or more than any CarHome could be
+                        if (Net.downloadTooBig(done, total)) { tooBig = true; break }
+                        output.write(buf, 0, n)
                         if (total > 0) {
                             val p = (done * 100 / total).toInt().coerceIn(0, 99)
                             if (p != shown) { shown = p; _state.value = _state.value.copy(progress = p) }
@@ -179,11 +205,63 @@ class Updater(private val core: Core) {
                     }
                 }
             }
-            if (total > 0 && tmp.length() != total) { tmp.delete(); return false }
+            if (tooBig || (total > 0 && tmp.length() != total)) { tmp.delete(); return false }
             return tmp.renameTo(out.also { it.delete() })
         } finally {
             conn.disconnect()
         }
+    }
+
+    /**
+     * Is the downloaded file really the CarHome update it claims to be? Checked here,
+     * before Android's installer sees it (which checks the signature once more).
+     */
+    private fun verified(rel: UpdateRelease): Boolean {
+        val file = apkFor(rel)
+        if (!file.isFile) return false
+        rel.sha256?.let { want -> if (fileSha256(file) != want) return false }
+        val pm = ctx.packageManager
+        @Suppress("DEPRECATION")
+        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+        val info = pm.getPackageArchiveInfo(file.path, flags) ?: return false
+        if (info.packageName != ctx.packageName) return false
+        val code = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
+        if (code <= localCode()) return false
+        // Same signing certificate as the CarHome that is running. Some Android versions
+        // can't read it from a file; then Android's installer alone makes this check.
+        val theirs = certs(info)
+        val mine = certs(runCatching { pm.getPackageInfo(ctx.packageName, flags) }.getOrNull())
+        if (theirs.isNotEmpty() && mine.isNotEmpty() && theirs.intersect(mine).isEmpty()) return false
+        return true
+    }
+
+    /** SHA-256 fingerprints of a package's signing certificates. */
+    private fun certs(info: PackageInfo?): Set<String> {
+        info ?: return emptySet()
+        @Suppress("DEPRECATION")
+        val sigs = if (Build.VERSION.SDK_INT >= 28) {
+            val si = info.signingInfo
+            when {
+                si == null -> null
+                si.hasMultipleSigners() -> si.apkContentsSigners
+                else -> si.signingCertificateHistory
+            }
+        } else info.signatures
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        return sigs?.map { Net.hex(md.digest(it.toByteArray())) }?.toSet() ?: emptySet()
+    }
+
+    private fun fileSha256(file: File): String {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buf = ByteArray(64 * 1024)
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        return Net.hex(md.digest())
     }
 
     private fun startInstall(file: File) {
@@ -212,7 +290,7 @@ class Updater(private val core: Core) {
             conn.readTimeout = 15_000
             conn.setRequestProperty("User-Agent", "CarHome (Android launcher)")
             conn.setRequestProperty("Accept", "application/vnd.github+json")
-            if (conn.responseCode != 200) null else conn.inputStream.bufferedReader().use { it.readText() }
+            if (conn.responseCode != 200) null else conn.inputStream.use { Net.readCapped(it, Net.MAX_RELEASE_INFO) }
         } finally {
             conn.disconnect()
         }

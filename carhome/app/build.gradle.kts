@@ -17,10 +17,11 @@ android {
         versionName   = "1.2.10"
     }
 
-    // Release builds are signed with the CarHome key, which is kept only in the
-    // repository's encrypted GitHub secrets (never in the code). The workflow
-    // writes it to a temporary file and passes its path and password here.
-    // Debug builds use the standard debug key (screenshots and local testing).
+    // Releases are signed outside Gradle: the build job makes an unsigned APK and a
+    // separate job, which runs no code from this repository, signs it with the key
+    // from the repository's encrypted secrets (see .github/workflows/build-carhome.yml).
+    // Only for signing on your own computer, set CARHOME_KEYSTORE (path to the .p12)
+    // and CARHOME_KEYSTORE_PASSWORD. Debug builds use the standard debug key.
     val releaseKey = System.getenv("CARHOME_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
         if (releaseKey != null) {

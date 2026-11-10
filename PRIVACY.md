@@ -1,6 +1,6 @@
 # CarHome — Privacy policy / سياسة الخصوصية
 
-_Last updated: 8 November 2026_
+_Last updated: 10 November 2026_
 
 ## English
 
@@ -18,7 +18,12 @@ CarHome is a home screen (launcher) for Android car boxes. It has no accounts, n
 - **Speed camera warnings:** your position rounded to about 1 km is sent to the same Overpass service.
 - **Update check:** CarHome asks GitHub (github.com) whether a newer version exists, and downloads it only when you tap Update. No personal data is sent.
 
+These requests are repeated while you drive: road limits as you move along the road, and speed cameras after about every 2 km (at most once a minute). Weather is refreshed from time to time. Even rounded positions, sent again and again, can show a service your approximate route, and it can link them through your internet address. Turn a feature off in Settings to stop its requests.
+
 These services see your device's internet address, as any website does. Their own privacy policies apply.
+
+**When you tap a place or a nearby button**
+- A saved place tile, or a nearby button (mosque, fuel, coffee), hands that destination or search to the navigation app on your device, such as Google Maps. This only happens when you tap it. From there the navigation app's own privacy policy applies.
 
 **Permissions**
 - Location: speed, alerts, trips, weather and prayer times.
@@ -48,7 +53,12 @@ CarHome واجهة رئيسية (Launcher) لأجهزة السيارة بنظا�
 - **تنبيه كاميرات السرعة:** موقعك مقرّبًا إلى حوالي 1 كم يُرسل إلى نفس خدمة Overpass.
 - **التحقق من التحديثات:** يسأل CarHome موقع GitHub عن وجود إصدار أحدث، ولا يحمّله إلا عندما تضغط "تحديث". لا تُرسل أي بيانات شخصية.
 
+هذه الطلبات تتكرر أثناء القيادة: حدود الطريق كلما تقدّمت في الطريق، وكاميرات السرعة بعد كل 2 كم تقريبًا (مرة في الدقيقة على الأكثر)، والطقس يُحدَّث من وقت لآخر. حتى المواقع المقرّبة، إذا أُرسلت مرة بعد مرة، قد تُظهر للخدمة مسارك التقريبي، ويمكنها ربطها ببعضها عبر عنوان الإنترنت لجهازك. أوقف الميزة من الإعدادات لإيقاف طلباتها.
+
 هذه الخدمات ترى عنوان الإنترنت لجهازك مثل أي موقع، وتنطبق عليها سياسات الخصوصية الخاصة بها.
+
+**عند الضغط على مكان أو زر "قريب منك"**
+- مربع المكان المحفوظ، أو زر قريب منك (مسجد، وقود، قهوة)، يسلّم الوجهة أو البحث إلى تطبيق الملاحة في جهازك مثل خرائط Google. يحدث هذا فقط عندما تضغط عليه، وبعدها تنطبق سياسة الخصوصية الخاصة بتطبيق الملاحة.
 
 **الصلاحيات**
 - الموقع: السرعة والتنبيهات والرحلات والطقس وأوقات الصلاة.
