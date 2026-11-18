@@ -245,11 +245,12 @@ private fun ModernMiddle(st: HomeState, act: HomeActions, showSpeed: Boolean) {
     val s = st.settings
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val h = maxHeight
+        val w = maxWidth
         when {
             showSpeed -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 // The speed card without its card: a big dial in the middle of the screen
                 CompositionLocalProvider(LocalGlassLook provides GlassLook(Color.Transparent, Color.Transparent)) {
-                    HomeCard(CardType.SPEED, st, act, Modifier.height(h).width(minOf(maxWidth, h * 1.6f)), compact = false)
+                    HomeCard(CardType.SPEED, st, act, Modifier.height(h).width(minOf(w, h * 1.6f)), compact = false)
                 }
             }
             s.modernFill == ModernFill.TODAY && !st.driving -> Row(
@@ -265,7 +266,7 @@ private fun ModernMiddle(st: HomeState, act: HomeActions, showSpeed: Boolean) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { PlaceChips(st, act, 2) }
                     }
                 }
-                TodayPanel(st, act, Modifier.width(minOf(390.dp, maxWidth * 0.46f)).heightIn(max = h))
+                TodayPanel(st, act, Modifier.width(minOf(390.dp, w * 0.46f)).heightIn(max = h))
             }
             else -> Column(
                 Modifier.fillMaxSize(),

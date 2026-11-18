@@ -583,6 +583,7 @@ private fun PrayerMini(st: HomeState, modifier: Modifier) {
     val locale = appLocale()
     val p = st.prayer
     BoxWithConstraints(modifier.glass().padding(10.dp), contentAlignment = Alignment.Center) {
+        val roomH = maxHeight
         if (p == null) {
             Icon(Icons.Rounded.Mosque, stringResource(R.string.prayer_waiting), tint = TextSecondary, modifier = Modifier.size(28.dp))
         } else {
@@ -607,7 +608,7 @@ private fun PrayerMini(st: HomeState, modifier: Modifier) {
                         Text(name, fontSize = 14.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
                     Text(time, fontSize = 20.sp, color = TextPrimary, fontWeight = FontWeight.Light, maxLines = 1)
-                    if (maxHeight >= 90.dp) Text(left, fontSize = 12.sp, color = st.accent, maxLines = 1)
+                    if (roomH >= 90.dp) Text(left, fontSize = 12.sp, color = st.accent, maxLines = 1)
                 }
             }
         }
@@ -633,6 +634,7 @@ private fun ShortcutWidget(w: Widget, driving: Boolean, st: HomeState, act: Home
         contentAlignment = Alignment.Center
     ) {
         val wide = maxWidth > maxHeight * 1.5f
+        val roomH = maxHeight
         val iconSize = minOf(maxHeight * (if (wide) 0.7f else 0.55f), 64.dp)
         val label = when {
             place != null -> place.name
@@ -659,7 +661,7 @@ private fun ShortcutWidget(w: Widget, driving: Boolean, st: HomeState, act: Home
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 icon()
-                if (maxHeight >= 84.dp) {
+                if (roomH >= 84.dp) {
                     Spacer(Modifier.height(6.dp))
                     Text(label, fontSize = 13.sp, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -720,8 +722,9 @@ private fun InternetWidget(net: NetState, onClick: () -> Unit, modifier: Modifie
     }
     BoxWithConstraints(modifier.glass().clickable(onClick = onClick).padding(8.dp), contentAlignment = Alignment.Center) {
         val showLabel = maxHeight >= 84.dp
+        val button = minOf(maxHeight - (if (showLabel) 26.dp else 0.dp), 52.dp)
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            InternetButton(net, onClick, minOf(maxHeight - (if (showLabel) 26.dp else 0.dp), 52.dp))
+            InternetButton(net, onClick, button)
             if (showLabel) {
                 Spacer(Modifier.height(6.dp))
                 Text(stringResource(label), fontSize = 13.sp, color = tint, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -740,10 +743,11 @@ private fun QiblaWidget(st: HomeState, modifier: Modifier) {
     val lon = st.lon
     val accent = st.accent
     BoxWithConstraints(modifier.glass().padding(10.dp), contentAlignment = Alignment.Center) {
+        val roomH = maxHeight
         if (lat == null || lon == null) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Rounded.Explore, null, tint = accent, modifier = Modifier.size(28.dp))
-                if (maxHeight >= 84.dp) Text(stringResource(R.string.qibla_needs_location), fontSize = 12.sp, color = TextSecondary, textAlign = TextAlign.Center, maxLines = 2)
+                if (roomH >= 84.dp) Text(stringResource(R.string.qibla_needs_location), fontSize = 12.sp, color = TextSecondary, textAlign = TextAlign.Center, maxLines = 2)
             }
         } else {
             val q = Qibla.bearing(lat, lon)
