@@ -136,7 +136,11 @@ fun ModernHome(st: HomeState, act: HomeActions) {
                 }
             }
         }
-        NoticeBanner(st.notices.firstOrNull(), st, act, Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp))
+        // A car reminder already shown under the clock or in Today needs no banner as well
+        val reminderOnScreen = !st.driving && !showSpeed &&
+            (s.modernFill == ModernFill.TODAY || (s.modernFill == ModernFill.SHORTCUTS && s.modernReminders))
+        val notice = st.notices.firstOrNull { !(reminderOnScreen && it.kind == com.carhome.launcher.NoticeKind.REMINDER) }
+        NoticeBanner(notice, st, act, Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp))
         FavoritesLayer(st, act, showHandle = true, edgeSwipe = s.edgeSwipe)
     }
 }
@@ -243,6 +247,9 @@ internal fun InternetButton(net: NetState, onClick: () -> Unit, size: Dp = 56.dp
 @Composable
 private fun ModernMiddle(st: HomeState, act: HomeActions, showSpeed: Boolean) {
     val s = st.settings
+    // The favourites button is on the physical left or right; which side is that here?
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val handleOnStart = (s.favSide == FavSide.LEFT) != rtl
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val h = maxHeight
         val w = maxWidth
@@ -254,7 +261,10 @@ private fun ModernMiddle(st: HomeState, act: HomeActions, showSpeed: Boolean) {
                 }
             }
             s.modernFill == ModernFill.TODAY && !st.driving -> Row(
-                Modifier.fillMaxSize(),
+                Modifier.fillMaxSize().padding(
+                    start = if (handleOnStart) 36.dp else 0.dp,
+                    end = if (handleOnStart) 0.dp else 36.dp
+                ),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
@@ -560,7 +570,7 @@ private fun FavPanel(st: HomeState, act: HomeActions, modifier: Modifier) {
     Column(
         modifier = modifier
             .clip(shape)
-            .background(Color(0xF20E1525))
+            .background(Color(0xFF0E1525))
             .border(1.dp, GlassStroke, shape)
             // Taps on the panel itself don't reach the dark area behind it (which closes it)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
@@ -582,14 +592,21 @@ private fun FavPanel(st: HomeState, act: HomeActions, modifier: Modifier) {
             GlassIconButton(Icons.Rounded.Close, stringResource(R.string.close_panel), act.closeFavs, size = 48.dp)
         }
         val slots = st.tiles.take(s.favCount)
-        Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            slots.chunked(3).forEachIndexed { r, row ->
-                Row(Modifier.fillMaxWidth()) {
-                    row.forEachIndexed { c, value -> FavItem(value, r * 3 + c, st, act, editing, Modifier.weight(1f)) }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+        val rows = slots.chunked(3)
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            // Every row fits the panel's height: the icons shrink on a low screen
+            val gap = 8.dp
+            val rowH = (maxHeight - gap * (rows.size - 1).coerceAtLeast(0)) / rows.size.coerceAtLeast(1)
+            val icon = (rowH - 40.dp).coerceIn(36.dp, (60.dp * s.iconSize.scale).coerceAtMost(76.dp))
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(gap)
+            ) {
+                rows.forEachIndexed { r, row ->
+                    Row(Modifier.fillMaxWidth()) {
+                        row.forEachIndexed { c, value -> FavItem(value, r * 3 + c, st, act, editing, icon, Modifier.weight(1f)) }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
                 }
             }
         }
@@ -602,12 +619,11 @@ private fun FavPanel(st: HomeState, act: HomeActions, modifier: Modifier) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FavItem(value: String, index: Int, st: HomeState, act: HomeActions, editing: Boolean, modifier: Modifier) {
+private fun FavItem(value: String, index: Int, st: HomeState, act: HomeActions, editing: Boolean, icon: Dp, modifier: Modifier) {
     var menu by remember { mutableStateOf(false) }
     val s = st.settings
     val app = st.appsByPackage[value]
     val isApp = value.isNotEmpty() && value != TILE_SMART && !value.startsWith(TILE_PLACE)
-    val icon = (60.dp * s.iconSize.scale).coerceAtMost(76.dp)
     Box(modifier) {
         Column(
             modifier = Modifier
@@ -620,7 +636,7 @@ private fun FavItem(value: String, index: Int, st: HomeState, act: HomeActions, 
                     },
                     onLongClick = { if (value.isNotEmpty()) menu = true }
                 )
-                .padding(vertical = 8.dp),
+                .padding(vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val label: String
@@ -651,7 +667,7 @@ private fun FavItem(value: String, index: Int, st: HomeState, act: HomeActions, 
                     label = ""
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 label, fontSize = 14.sp, color = if (value.isEmpty()) TextSecondary else TextPrimary,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp)

@@ -1158,7 +1158,7 @@ private fun WidgetLibrary(st: HomeState, act: HomeActions, layout: CustomLayout,
                 .fillMaxSize()
                 .padding(20.dp)
                 .clip(sheet)
-                .background(Color(0xF70E1525))
+                .background(Color(0xFF0E1525))
                 .border(1.dp, GlassStroke, sheet)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .padding(18.dp),
