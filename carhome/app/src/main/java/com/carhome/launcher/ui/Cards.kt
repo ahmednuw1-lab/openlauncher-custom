@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -494,7 +495,12 @@ fun SpeedCard(
                         }
                     }
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Inside the dial the text keeps clear of the arc: a long status line
+                // (like "waiting for GPS" in Arabic) is cut short instead of running over it
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = if (gauge) Modifier.widthIn(max = minOf(maxWidth, maxHeight) * 0.68f) else Modifier
+                ) {
                     Text(
                         text = number,
                         fontSize = if (gauge) 54.sp else 84.sp,
