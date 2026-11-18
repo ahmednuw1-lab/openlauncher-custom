@@ -345,6 +345,8 @@ private fun MainColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
                 )
             }
             GlassIconButton(Icons.Rounded.Apps, stringResource(R.string.all_apps), act.openApps)
+            // Internet sign beside Settings: green online, amber without internet, grey offline; tap to pick Wi-Fi
+            if (s.internetBadge) InternetButton(st.net, act.openInternet)
             GlassIconButton(Icons.Rounded.Settings, stringResource(R.string.settings), act.openSettings)
         }
         val perPage = s.tileCount

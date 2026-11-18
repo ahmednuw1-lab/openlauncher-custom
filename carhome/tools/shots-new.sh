@@ -46,5 +46,18 @@ for i in 1 2 3 4 5 6; do adb emu geo fix 49.64$i 25.3833 150 8 46; sleep 1; done
 shot 64-speed-sizes-10x5
 park
 
+# 65–66: classic home, the internet sign beside Settings (English and Arabic)
+CLASSICH='{"homeStyle":"CLASSIC","tileCount":8,"cards":["CLOCK","SPEED","MUSIC","TRIP"],"topBar":"WEATHER","showPrayerChip":true,"showHijri":true,"accent":4283403519}'
+prefs "$CLASSICH" "$APPS7" "$BOOT" "$SEEN"
+start
+for i in 1 2 3 4 5 6; do adb emu geo fix 49.5920 25.3833 150 8 0; sleep 3; done
+shot 65-classic-internet-sign
+adb shell cmd locale set-app-locales $PKG --locales ar || true
+prefs "$CLASSICH" "$APPS7" "$BOOT" "$SEEN"
+start
+for i in 1 2 3 4 5 6; do adb emu geo fix 49.5920 25.3833 150 8 0; sleep 3; done
+shot 66-classic-internet-sign-arabic
+adb shell cmd locale set-app-locales $PKG --locales en || true
+
 adb shell wm size 1280x720
 adb shell wm density 160

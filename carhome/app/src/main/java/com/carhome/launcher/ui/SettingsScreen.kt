@@ -587,6 +587,9 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
         if (s.topBar != TopBar.PRAYER) {
             Toggle(stringResource(R.string.show_prayer_chip), s.showPrayerChip, a) { v -> act.update { it.copy(showPrayerChip = v) } }
         }
+        if (classic) {
+            Toggle(stringResource(R.string.net_sign), s.internetBadge, a, stringResource(R.string.net_sign_hint)) { v -> act.update { it.copy(internetBadge = v) } }
+        }
     }
     Section(stringResource(R.string.layout)) {
         if (classic) {

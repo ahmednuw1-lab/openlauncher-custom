@@ -2,6 +2,7 @@
 
 ## en
 - Speed: the gauge now fits boxes of any size. On a square box the speed text sits under the gauge instead of being cut off
+- Classic home: the internet sign beside Settings (green online, grey offline; tap it to pick a Wi-Fi network). Turn it off in Settings → Home screen → Top bar
 - Custom: a new weather widget. One row high, the coming hours sit beside the weather now; two rows or more, a temperature curve from now on, with coloured weather icons
 - Three home screen styles: Classic, Modern and Custom (Settings → Home screen). Classic stays as it was until you choose another.
 - Modern: no app tiles, a big clock (the speed while moving), your places, a suggested app and car reminders under it, or a "Today" panel beside it
@@ -13,6 +14,7 @@
 
 ## ar
 - السرعة: العدّاد صار يناسب المربع بأي حجم. في المربع شبه المربّع ينزل نص السرعة تحت العدّاد بدل ما ينقص
+- الشاشة التقليدية: علامة الإنترنت بجانب الإعدادات (خضراء وأنت متصل ورمادية إذا لا، واضغطها لاختيار شبكة واي فاي). تقدر توقفها من الإعدادات ← الشاشة الرئيسية ← الشريط العلوي
 - المخصصة: أداة طقس جديدة. بارتفاع صف واحد تطلع الساعات القادمة جنب الطقس الحالي، وبصفين أو أكثر منحنى للحرارة من الآن، مع أيقونات طقس ملوّنة
 - ثلاثة أنماط للشاشة الرئيسية: تقليدية وحديثة ومخصصة (الإعدادات ← الشاشة الرئيسية). التقليدية تبقى كما هي حتى تختار غيرها.
 - الحديثة: بدون مربعات تطبيقات، ساعة كبيرة (والسرعة وأنت تمشي)، وتحتها أماكنك وتطبيق مقترح وتذكيرات السيارة، أو لوحة "اليوم" بجانبها
