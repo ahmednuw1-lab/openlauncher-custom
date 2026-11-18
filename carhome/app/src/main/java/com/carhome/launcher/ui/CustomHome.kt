@@ -394,7 +394,7 @@ private fun WidgetContent(w: Widget, driving: Boolean, st: HomeState, act: HomeA
                     onPlayPause = act.playPause, onNext = act.next, onPrevious = act.previous, modifier = m,
                     showArt = w.showArt, showControls = w.showControls, minimal = maxWidth < 300.dp
                 )
-                WidgetType.WEATHER -> if (maxWidth < 170.dp) WeatherMini(st, act, m) else HomeCard(CardType.WEATHER, st, act, m, compact = true)
+                WidgetType.WEATHER -> if (maxWidth < 170.dp) WeatherMini(st, act, m) else WeatherWidget(st, act, m)
                 WidgetType.PRAYER -> if (maxWidth < 230.dp) PrayerMini(st, m) else HomeCard(CardType.PRAYER, st, act, m, compact = true)
                 WidgetType.TRIP -> HomeCard(CardType.TRIP, st, act, m, compact = true)
                 WidgetType.CAR -> HomeCard(CardType.CAR, st, act, m, compact = true)
@@ -570,7 +570,7 @@ private fun WeatherMini(st: HomeState, act: HomeActions, modifier: Modifier) {
         if (w == null) {
             Icon(if (st.hasLocation) Icons.Rounded.WbSunny else Icons.Rounded.LocationOn, null, tint = TextSecondary, modifier = Modifier.size(28.dp))
         } else {
-            Icon(weatherIcon(weatherKind(w.code), w.isDay), null, tint = WarnAmber, modifier = Modifier.size(30.dp))
+            Icon(weatherIcon(weatherKind(w.code), w.isDay), null, tint = weatherTint(weatherKind(w.code), w.isDay), modifier = Modifier.size(30.dp))
             Spacer(Modifier.height(4.dp))
             Text("${w.temperatureC.roundToInt()}°", fontSize = 26.sp, fontWeight = FontWeight.Light, color = TextPrimary, maxLines = 1)
         }

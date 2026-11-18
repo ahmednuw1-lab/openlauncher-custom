@@ -29,4 +29,20 @@ object LookMath {
         // Keep some room above the limit so the red zone is visible
         return (Math.ceil((limit * 1.15) / step) * step).toFloat()
     }
+
+    /**
+     * Heights for the temperature curve: 0 (coolest, bottom) … 1 (warmest, top).
+     * A small spread of degrees is drawn over at least [minSpan] degrees so that
+     * a change of 1° does not swing from the bottom to the top. Bad numbers sit in the middle.
+     */
+    fun tempLevels(temps: List<Double>, minSpan: Double = 6.0): List<Float> {
+        val ok = temps.filter { it.isFinite() }
+        if (ok.isEmpty()) return temps.map { 0.5f }
+        val lo0 = ok.min()
+        val hi0 = ok.max()
+        val span = maxOf(hi0 - lo0, if (minSpan.isFinite() && minSpan > 0.0) minSpan else 1.0)
+        val mid = (lo0 + hi0) / 2.0
+        val lo = mid - span / 2.0
+        return temps.map { t -> if (!t.isFinite()) 0.5f else ((t - lo) / span).toFloat().coerceIn(0f, 1f) }
+    }
 }

@@ -1,6 +1,7 @@
-# CarHome 1.3.0
+# CarHome 1.3.1
 
 ## en
+- Custom: a new weather widget. One row high, the coming hours sit beside the weather now; two rows or more, a temperature curve from now on, with coloured weather icons
 - Three home screen styles: Classic, Modern and Custom (Settings → Home screen). Classic stays as it was until you choose another.
 - Modern: no app tiles, a big clock (the speed while moving), your places, a suggested app and car reminders under it, or a "Today" panel beside it
 - Modern: favourite apps behind a button on the screen edge (left, the driver's side, or right), with All apps and Settings in the same panel
@@ -10,6 +11,7 @@
 - Custom: up to three pages, 6×3, 8×4 or 10×5 grid, Undo, and a separate layout for while driving
 
 ## ar
+- المخصصة: أداة طقس جديدة. بارتفاع صف واحد تطلع الساعات القادمة جنب الطقس الحالي، وبصفين أو أكثر منحنى للحرارة من الآن، مع أيقونات طقس ملوّنة
 - ثلاثة أنماط للشاشة الرئيسية: تقليدية وحديثة ومخصصة (الإعدادات ← الشاشة الرئيسية). التقليدية تبقى كما هي حتى تختار غيرها.
 - الحديثة: بدون مربعات تطبيقات، ساعة كبيرة (والسرعة وأنت تمشي)، وتحتها أماكنك وتطبيق مقترح وتذكيرات السيارة، أو لوحة "اليوم" بجانبها
 - الحديثة: التطبيقات المفضلة خلف زر على حافة الشاشة (يسار جهة السائق، أو يمين)، ومعها كل التطبيقات والإعدادات في نفس اللوحة

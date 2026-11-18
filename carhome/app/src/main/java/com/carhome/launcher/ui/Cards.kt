@@ -196,6 +196,24 @@ fun weatherIcon(kind: WeatherKind, isDay: Boolean): ImageVector = when (kind) {
     WeatherKind.STORM -> Icons.Rounded.FlashOn
 }
 
+/** A colour that fits the sky: a yellow sun, a pale moon, blue rain. */
+fun weatherTint(kind: WeatherKind, isDay: Boolean): Color = when (kind) {
+    WeatherKind.CLEAR -> if (isDay) Color(0xFFFFC53D) else Color(0xFFC7D2FE)
+    WeatherKind.PARTLY -> Color(0xFFE2E8F0)
+    WeatherKind.CLOUDY, WeatherKind.FOG -> Color(0xFFCBD5E1)
+    WeatherKind.DRIZZLE, WeatherKind.RAIN -> Color(0xFF60A5FA)
+    WeatherKind.SNOW -> Color(0xFFE0F2FE)
+    WeatherKind.STORM -> Color(0xFFFBBF24)
+}
+
+/** The dust or fog warning for the weather, or null when there is none. */
+@Composable
+internal fun weatherWarning(weather: WeatherInfo, dustInHours: Int?): String? = when {
+    dustInHours != null -> if (dustInHours == 0) stringResource(R.string.dust_now) else stringResource(R.string.dust_in, dustInHours)
+    weather.fogInHours != null -> if (weather.fogInHours == 0) stringResource(R.string.fog_now) else stringResource(R.string.fog_in, weather.fogInHours)
+    else -> null
+}
+
 private fun hourLabel(hour: Int, use24h: Boolean, locale: Locale): String {
     val cal = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, hour)
@@ -271,7 +289,7 @@ fun WeatherCard(
 }
 
 @Composable
-private fun CardMessage(icon: ImageVector, text: String, tint: Color) {
+internal fun CardMessage(icon: ImageVector, text: String, tint: Color) {
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (maxHeight < 110.dp) {
             // Short screens: icon and text side by side

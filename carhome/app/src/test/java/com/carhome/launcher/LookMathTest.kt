@@ -22,6 +22,34 @@ class LookMathTest {
         assertEquals(0, LookMath.hourCells(300f, 0f))
     }
 
+    @Test fun warmestHourIsHighestOnTheCurve() {
+        val l = LookMath.tempLevels(listOf(27.0, 26.0, 24.0, 21.0, 30.0))
+        assertEquals(1f, l[4], 0.0001f)
+        assertEquals(0f, l[3], 0.0001f)
+        assertEquals(6f / 9f, l[0], 0.0001f)
+    }
+
+    @Test fun aSmallChangeStaysNearTheMiddle() {
+        // 1° of change spread over the 6° minimum: no jump from bottom to top
+        val l = LookMath.tempLevels(listOf(22.0, 23.0))
+        assertEquals(5f / 12f, l[0], 0.0001f)
+        assertEquals(7f / 12f, l[1], 0.0001f)
+        // One temperature, or the same all day: a flat line in the middle
+        assertEquals(listOf(0.5f), LookMath.tempLevels(listOf(25.0)))
+        assertEquals(listOf(0.5f, 0.5f, 0.5f), LookMath.tempLevels(listOf(25.0, 25.0, 25.0)))
+    }
+
+    @Test fun badTemperaturesDoNotBreakTheCurve() {
+        assertEquals(emptyList<Float>(), LookMath.tempLevels(emptyList()))
+        assertEquals(listOf(0.5f, 0.5f), LookMath.tempLevels(listOf(Double.NaN, Double.POSITIVE_INFINITY)))
+        val l = LookMath.tempLevels(listOf(20.0, Double.NaN, 32.0))
+        assertEquals(0f, l[0], 0.0001f)
+        assertEquals(0.5f, l[1], 0.0001f)
+        assertEquals(1f, l[2], 0.0001f)
+        // A bad minimum spread falls back to 1°
+        assertEquals(1f, LookMath.tempLevels(listOf(20.0, 21.0), Double.NaN)[1], 0.0001f)
+    }
+
     @Test fun gaugeFractionStaysOnTheDial() {
         assertEquals(0f, LookMath.gaugeFraction(0f, 200f), 0f)
         assertEquals(0.5f, LookMath.gaugeFraction(100f, 200f), 0.0001f)
