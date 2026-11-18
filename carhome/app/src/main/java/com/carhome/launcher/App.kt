@@ -54,6 +54,8 @@ class Core(val app: Application) {
     val engine = DriveEngine(this)
     val obd = ObdClient(this)
     val updater by lazy { Updater(this) }
+    /** The box's internet connection, for the internet sign (1.3). */
+    val net = NetWatch(app)
     val cameras by lazy { CameraWatch(this) }
 
     fun updateSettings(block: (LauncherSettings) -> LauncherSettings): Pair<LauncherSettings, LauncherSettings> {

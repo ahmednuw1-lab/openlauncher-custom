@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -266,9 +267,24 @@ fun LivingSky(sun: Pair<Long, Long>?, weatherCode: Int?, dust: Boolean) {
     }
 }
 
+/** A card look that replaces the global one for part of the screen (a widget's own style on the custom home). */
+data class GlassLook(val fill: Color, val stroke: Color)
+
+val LocalGlassLook = androidx.compose.runtime.compositionLocalOf<GlassLook?> { null }
+
+/** The look of a custom-home widget's card: glass follows the Display setting; the others are its own. */
+fun glassLookFor(style: com.carhome.launcher.WidgetStyle, accent: Color): GlassLook? = when (style) {
+    com.carhome.launcher.WidgetStyle.GLASS -> null
+    com.carhome.launcher.WidgetStyle.SOLID -> GlassLook(Color(0xFF111827).copy(alpha = 0.96f), GlassStroke)
+    com.carhome.launcher.WidgetStyle.CLEAR -> GlassLook(Color.Transparent, Color.Transparent)
+    com.carhome.launcher.WidgetStyle.TINTED -> GlassLook(accent.copy(alpha = 0.24f), accent.copy(alpha = 0.40f))
+}
+
 /** Frosted-glass style card: translucent fill, hairline border, big rounded corners. */
-fun Modifier.glass(shape: Shape = CardShape): Modifier =
-    this.clip(shape).background(GlassFill).border(1.dp, GlassStroke, shape)
+fun Modifier.glass(shape: Shape = CardShape): Modifier = this.composed {
+    val look = LocalGlassLook.current
+    Modifier.clip(shape).background(look?.fill ?: GlassFill).border(1.dp, look?.stroke ?: GlassStroke, shape)
+}
 
 /** Shrinks slightly while pressed — a small touch that makes taps feel responsive. */
 @Composable

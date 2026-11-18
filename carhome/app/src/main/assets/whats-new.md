@@ -1,23 +1,19 @@
-# CarHome 1.2.12
+# CarHome 1.3.0
 
 ## en
-- Clock and speed are centred in their cards (Settings → Home screen → Layout to put them back at the side)
-- 16 accent colours and your own custom colour, plus one-tap themes (Settings → Display)
-- Speed card: a real half-circle gauge on low screens, with marks and a red zone above your limit
-- Top bar weather fits your screen: fewer or more hours, and swipe or tap the arrow for the next 24 hours
-- Top bar can show weather, next prayer, the date, music or the trip instead (Settings → Home screen)
-- Card style: clear, glass, frosted or solid, with square or round corners, and a high-contrast mode for sunlight
-- App icon size and shape (Settings → Home screen)
-- Bigger buttons in Settings and a small press effect on every button
-- Security: updates are checked more strictly before installing, and downloads are size-limited
+- Three home screen styles: Classic, Modern and Custom (Settings → Home screen). Classic stays as it was until you choose another.
+- Modern: no app tiles, a big clock (the speed while moving), your places, a suggested app and car reminders under it, or a "Today" panel beside it
+- Modern: favourite apps behind a button on the screen edge (left, the driver's side, or right), with All apps and Settings in the same panel
+- Internet sign: green when online, amber on a network without internet, grey when offline; tap it to choose a Wi-Fi network
+- Custom: put any widget anywhere on a grid. Press and hold the home screen to edit: drag to move, drag the corner to resize, and pick each widget's size and look
+- Custom widgets: clock (digital, analogue or in words), date, speed, music, weather, prayer, trip, car data, today, apps and places, favourites, internet, Qibla and the travel dua
+- Custom: up to three pages, 6×3, 8×4 or 10×5 grid, Undo, and a separate layout for while driving
 
 ## ar
-- الساعة والسرعة في وسط البطاقة (الإعدادات ← الشاشة الرئيسية ← التخطيط لإعادتهما إلى الجانب)
-- 16 لونًا مميزًا ولونك المخصص، مع سمات جاهزة بضغطة واحدة (الإعدادات ← العرض)
-- بطاقة السرعة: عدّاد نصف دائري حقيقي على الشاشات المنخفضة، مع علامات ومنطقة حمراء فوق حدّك
-- طقس الشريط العلوي يناسب شاشتك: ساعات أقل أو أكثر، واسحب أو اضغط السهم لرؤية الـ 24 ساعة القادمة
-- الشريط العلوي يعرض الطقس أو الصلاة القادمة أو التاريخ أو الموسيقى أو الرحلة (الإعدادات ← الشاشة الرئيسية)
-- شكل البطاقات: شفاف أو زجاجي أو معتم، بزوايا مربعة أو دائرية، ووضع تباين عالٍ تحت الشمس
-- حجم وشكل أيقونات التطبيقات (الإعدادات ← الشاشة الرئيسية)
-- أزرار أكبر في الإعدادات وتأثير ضغط خفيف على كل الأزرار
-- الأمان: فحص أدق للتحديثات قبل التثبيت، وحد لحجم التنزيلات
+- ثلاثة أنماط للشاشة الرئيسية: تقليدية وحديثة ومخصصة (الإعدادات ← الشاشة الرئيسية). التقليدية تبقى كما هي حتى تختار غيرها.
+- الحديثة: بدون مربعات تطبيقات، ساعة كبيرة (والسرعة وأنت تمشي)، وتحتها أماكنك وتطبيق مقترح وتذكيرات السيارة، أو لوحة "اليوم" بجانبها
+- الحديثة: التطبيقات المفضلة خلف زر على حافة الشاشة (يسار جهة السائق، أو يمين)، ومعها كل التطبيقات والإعدادات في نفس اللوحة
+- علامة الإنترنت: خضراء وأنت متصل، وصفراء على شبكة بدون إنترنت، ورمادية بدون اتصال؛ اضغطها لاختيار شبكة واي فاي
+- المخصصة: ضع أي أداة في أي مكان على الشبكة. اضغط مطولًا على الشاشة للتعديل: اسحب للتحريك، واسحب الزاوية لتغيير الحجم، واختر حجم وشكل كل أداة
+- أدوات المخصصة: الساعة (رقمية أو بعقارب أو بالكلمات)، التاريخ، السرعة، الموسيقى، الطقس، الصلاة، الرحلة، بيانات السيارة، اليوم، التطبيقات والأماكن، المفضلة، الإنترنت، القبلة ودعاء السفر
+- المخصصة: حتى ثلاث صفحات، شبكة 6×3 أو 8×4 أو 10×5، تراجع، وتخطيط خاص أثناء القيادة

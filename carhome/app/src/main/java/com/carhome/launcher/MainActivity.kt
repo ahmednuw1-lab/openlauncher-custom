@@ -196,9 +196,13 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val n = vm.nav.value
+                val edit = vm.customEdit.value
                 when {
                     n.pickFor == PickFor.AUTO_APP -> vm.openSettings()
                     n.page != Page.HOME -> vm.goHome()
+                    vm.favOpen.value -> vm.closeFavs()
+                    edit?.library == true -> vm.changeCustomEdit { it.copy(library = false) }
+                    edit != null -> vm.endCustomEdit()
                 }
             }
         })
@@ -255,6 +259,14 @@ class MainActivity : ComponentActivity() {
             val oilAt by vm.engine.oilChangedAtKm.collectAsStateWithLifecycle()
             val obdStatus by core.obd.status.collectAsStateWithLifecycle()
             val obdData by core.obd.data.collectAsStateWithLifecycle()
+            // 1.3: modern and custom homes
+            val favOpen by vm.favOpen.collectAsStateWithLifecycle()
+            val custom by vm.customLayout.collectAsStateWithLifecycle()
+            val customDrive by vm.customDriveLayout.collectAsStateWithLifecycle()
+            val customEdit by vm.customEdit.collectAsStateWithLifecycle()
+            val dueReminders by vm.dueReminders.collectAsStateWithLifecycle()
+            val net by core.net.state.collectAsStateWithLifecycle()
+            val location by vm.engine.location.collectAsStateWithLifecycle()
 
             // A language change needs the screen rebuilt with the new resources
             LaunchedEffect(s.language) {
@@ -303,7 +315,14 @@ class MainActivity : ComponentActivity() {
                                         gpsState = gpsState, satellites = satellites.first, speedFromCar = speedFromCar, speedStale = speedStale, speedApprox = speedApprox,
                                         overspeed = overspeed, limit = limit, prayer = prayer,
                                         trip = trip, lastTrip = lastTrip, obdStatus = obdStatus, obdData = obdData,
-                                        driving = driving, notices = notices, parkedOnly = parkedOnly
+                                        driving = driving, notices = notices, parkedOnly = parkedOnly,
+                                        moving = drivingNow, places = places,
+                                        lat = location?.latitude, lon = location?.longitude,
+                                        heading = location?.takeIf { drivingNow && it.hasBearing() && (speedMps ?: 0f) > 3f }?.bearing,
+                                        dueReminders = dueReminders,
+                                        oilLeftKm = if (s.oilReminder) s.oilInterval - (odometer - oilAt) else null,
+                                        net = net, favOpen = favOpen,
+                                        custom = custom, customDrive = customDrive, customEdit = customEdit
                                     ),
                                     homeActions
                                 )
@@ -312,7 +331,7 @@ class MainActivity : ComponentActivity() {
                                     apps = apps,
                                     accent = accent,
                                     pickerMode = current.pickFor != null,
-                                    allowPlaces = current.pickFor == PickFor.TILE && s.placeTiles,
+                                    allowPlaces = (current.pickFor == PickFor.TILE && s.placeTiles) || current.pickFor == PickFor.WIDGET,
                                     allowSmart = current.pickFor == PickFor.TILE && s.smartTile,
                                     places = places,
                                     parkedOnlyOn = s.parkedOnly,
@@ -339,7 +358,8 @@ class MainActivity : ComponentActivity() {
                                         voiceStatus = voiceStatus, appsByPackage = appsByPackage, places = places,
                                         odometerKm = odometer, oilChangedAtKm = oilAt, obdStatus = obdStatus,
                                         pairedDevices = paired, scores = scores, prayer = prayer, parkedOnly = parkedOnly,
-                                        gps = gpsDiag, update = updateState, tripHistory = tripHistory, reminders = reminders
+                                        gps = gpsDiag, update = updateState, tripHistory = tripHistory, reminders = reminders,
+                                        customGrid = custom.grid
                                     ),
                                     settingsActions
                                 )
@@ -400,7 +420,21 @@ class MainActivity : ComponentActivity() {
             openReminders = { vm.openSettingsPage(SettingsPage.TRIP); vm.openSettings() },
             renewReminder = { vm.renewReminder(it) },
             newTrip = { vm.newTrip() },
-            readCodes = { vm.readCodes() }
+            readCodes = { vm.readCodes() },
+            openFavs = { vm.openFavs() },
+            closeFavs = { vm.closeFavs() },
+            openInternet = { openInternetPanel() },
+            openPlace = { vm.closeFavs(); vm.navigateTo(it) },
+            openShortcut = { vm.openShortcut(it) },
+            openDisplaySettings = { vm.openSettingsPage(SettingsPage.DISPLAY); vm.openSettings() },
+            startCustomEdit = { vm.startCustomEdit() },
+            endCustomEdit = { vm.endCustomEdit() },
+            changeCustomEdit = { vm.changeCustomEdit(it) },
+            changeCustom = { driving, change -> vm.changeCustom(driving, change) },
+            undoCustom = { vm.undoCustom() },
+            addWidget = { type, size, face -> vm.addWidget(type, size, face) },
+            pickForWidget = { driving, id -> vm.pickForWidget(driving, id) },
+            setCustomGrid = { vm.setCustomGrid(it) }
         )
     }
 
@@ -441,6 +475,15 @@ class MainActivity : ComponentActivity() {
             addReminder = { vm.addReminder(it) },
             removeReminder = { vm.removeReminder(it) },
             renewReminder = { vm.renewReminder(it) },
+            editCustomLayout = { vm.startCustomEdit() },
+            setCustomGrid = { vm.setCustomGrid(it) },
+            resetCustomLayout = {
+                android.app.AlertDialog.Builder(this)
+                    .setMessage(R.string.custom_reset_confirm)
+                    .setPositiveButton(R.string.custom_reset) { _, _ -> vm.resetCustom() }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            },
             clearTripHistory = {
                 android.app.AlertDialog.Builder(this)
                     .setMessage(R.string.trip_history_clear_confirm)
@@ -521,6 +564,14 @@ class MainActivity : ComponentActivity() {
     private fun openSpecial(action: String) {
         val opened = tryStart(Intent(action, Uri.parse("package:$packageName"))) || tryStart(Intent(action))
         if (!opened) tryStart(appDetails())
+    }
+
+    /** Android's own internet panel (Wi-Fi, mobile data) where there is one; otherwise the Wi-Fi settings. */
+    private fun openInternetPanel() {
+        val opened = (Build.VERSION.SDK_INT >= 29 && tryStart(Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY))) ||
+            tryStart(Intent(Settings.ACTION_WIFI_SETTINGS)) ||
+            tryStart(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+        if (!opened) tryStart(Intent(Settings.ACTION_SETTINGS))
     }
 
     private fun openLocationSettings() {

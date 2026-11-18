@@ -1,6 +1,13 @@
 package com.carhome.launcher.ui
 
 import com.carhome.launcher.AccentColors
+import com.carhome.launcher.FAV_COUNTS
+import com.carhome.launcher.FavSide
+import com.carhome.launcher.GridSize
+import com.carhome.launcher.HomeStyle
+import com.carhome.launcher.MAX_MODERN_CARDS
+import com.carhome.launcher.ModernCenter
+import com.carhome.launcher.ModernFill
 import com.carhome.launcher.CardFill
 import com.carhome.launcher.CardAlign
 import com.carhome.launcher.Corners
@@ -168,7 +175,8 @@ data class SettingsState(
     val gps: GpsDiag,
     val update: UpdateState = UpdateState(),
     val tripHistory: List<PastTrip> = emptyList(),
-    val reminders: List<CarReminder> = emptyList()
+    val reminders: List<CarReminder> = emptyList(),
+    val customGrid: GridSize = GridSize.NORMAL
 )
 
 class SettingsActions(
@@ -202,7 +210,10 @@ class SettingsActions(
     val clearTripHistory: () -> Unit = {},
     val addReminder: (CarReminder) -> Unit = {},
     val removeReminder: (String) -> Unit = {},
-    val renewReminder: (String) -> Unit = {}
+    val renewReminder: (String) -> Unit = {},
+    val editCustomLayout: () -> Unit = {},
+    val setCustomGrid: (GridSize) -> Unit = {},
+    val resetCustomLayout: () -> Unit = {}
 )
 
 @Composable
@@ -493,7 +504,16 @@ private fun cardLabel(c: CardType): Int = when (c) {
 private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
     val s = st.settings
     val a = st.accent
-    Section(stringResource(R.string.home_tiles)) {
+    val classic = s.homeStyle == HomeStyle.CLASSIC
+    Section(stringResource(R.string.home_style)) {
+        HomeStyleCards(s.homeStyle, a) { v -> act.update { it.copy(homeStyle = v) } }
+    }
+    when (s.homeStyle) {
+        HomeStyle.MODERN -> ModernSettings(st, act)
+        HomeStyle.CUSTOM -> CustomSettings(st, act)
+        HomeStyle.CLASSIC -> Unit
+    }
+    if (classic) Section(stringResource(R.string.home_tiles)) {
         Chips(null, TILE_COUNTS.map { "$it" }, TILE_COUNTS.indexOf(s.tileCount), a) { i -> act.update { it.copy(tileCount = TILE_COUNTS[i]) } }
         Toggle(stringResource(R.string.second_page), s.secondPage, a, stringResource(R.string.second_page_hint)) { v ->
             act.update { it.copy(secondPage = v) }
@@ -512,7 +532,7 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
             IconShape.entries.indexOf(s.iconShape), a
         ) { i -> act.update { it.copy(iconShape = IconShape.entries[i]) } }
     }
-    Section(stringResource(R.string.info_cards)) {
+    if (classic) Section(stringResource(R.string.info_cards)) {
         Hint(stringResource(R.string.info_cards_hint, MAX_CARDS))
         val order = s.cards + CardType.entries.filter { it !in s.cards }
         order.forEach { c ->
@@ -550,7 +570,7 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
             }
         }
     }
-    Section(stringResource(R.string.top_bar)) {
+    if (classic) Section(stringResource(R.string.top_bar)) {
         Chips(
             stringResource(R.string.top_bar_shows),
             listOf(
@@ -569,11 +589,13 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
         }
     }
     Section(stringResource(R.string.layout)) {
-        Chips(stringResource(R.string.cards_side), listOf(stringResource(R.string.side_start), stringResource(R.string.side_end)), Side.entries.indexOf(s.infoSide), a) { i ->
-            act.update { it.copy(infoSide = Side.entries[i]) }
-        }
-        Chips(stringResource(R.string.cards_width), listOf(stringResource(R.string.narrow), stringResource(R.string.normal), stringResource(R.string.wide)), ColumnWidth.entries.indexOf(s.infoWidth), a) { i ->
-            act.update { it.copy(infoWidth = ColumnWidth.entries[i]) }
+        if (classic) {
+            Chips(stringResource(R.string.cards_side), listOf(stringResource(R.string.side_start), stringResource(R.string.side_end)), Side.entries.indexOf(s.infoSide), a) { i ->
+                act.update { it.copy(infoSide = Side.entries[i]) }
+            }
+            Chips(stringResource(R.string.cards_width), listOf(stringResource(R.string.narrow), stringResource(R.string.normal), stringResource(R.string.wide)), ColumnWidth.entries.indexOf(s.infoWidth), a) { i ->
+                act.update { it.copy(infoWidth = ColumnWidth.entries[i]) }
+            }
         }
         Chips(stringResource(R.string.card_align), listOf(stringResource(R.string.align_center), stringResource(R.string.align_side)), CardAlign.entries.indexOf(s.cardAlign), a) { i ->
             act.update { it.copy(cardAlign = CardAlign.entries[i]) }
@@ -1363,5 +1385,216 @@ private fun PermissionsPage(st: SettingsState, act: SettingsActions) {
             Text(stringResource(R.string.version_line), fontSize = 16.sp, color = TextPrimary)
         }
         Hint(stringResource(R.string.credits))
+    }
+}
+
+// ── Home style (1.3) ──────────────────────────────────────────────────────────
+
+private fun styleName(h: HomeStyle): Int = when (h) {
+    HomeStyle.CLASSIC -> R.string.style_classic
+    HomeStyle.MODERN -> R.string.style_modern
+    HomeStyle.CUSTOM -> R.string.style_custom
+}
+
+private fun styleDesc(h: HomeStyle): Int = when (h) {
+    HomeStyle.CLASSIC -> R.string.style_classic_desc
+    HomeStyle.MODERN -> R.string.style_modern_desc
+    HomeStyle.CUSTOM -> R.string.style_custom_desc
+}
+
+/** The three home screens side by side, each with a small picture of itself. */
+@Composable
+private fun HomeStyleCards(current: HomeStyle, accent: Color, onSelect: (HomeStyle) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        HomeStyle.entries.forEach { style ->
+            val on = style == current
+            val shape = RoundedCornerShape(20.dp)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(shape)
+                    .background(if (on) accent.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.04f))
+                    .border(if (on) 2.dp else 1.dp, if (on) accent else GlassStroke, shape)
+                    .clickable { onSelect(style) }
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                StylePreview(style, accent, Modifier.fillMaxWidth().height(96.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(22.dp).clip(CircleShape)
+                            .background(if (on) accent else Color.Transparent)
+                            .border(2.dp, if (on) accent else TextSecondary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) { if (on) Icon(Icons.Rounded.Check, null, tint = onAccent(accent), modifier = Modifier.size(14.dp)) }
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(stringResource(styleName(style)), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                        Text(stringResource(styleDesc(style)), fontSize = 12.sp, color = TextSecondary, maxLines = 2)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StylePreview(style: HomeStyle, accent: Color, modifier: Modifier) {
+    val block = Color.White.copy(alpha = 0.12f)
+    val shape = RoundedCornerShape(14.dp)
+    Box(
+        modifier.clip(shape).background(Brush.verticalGradient(listOf(Color(0xFF0B1020), Color(0xFF16213A))))
+            .border(1.dp, Color.White.copy(alpha = 0.06f), shape)
+    ) {
+        when (style) {
+            HomeStyle.CLASSIC -> Row(Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(Modifier.weight(0.34f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    repeat(3) { Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(6.dp)).background(block)) }
+                }
+                Column(Modifier.weight(0.66f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.fillMaxWidth().height(9.dp).clip(RoundedCornerShape(5.dp)).background(block))
+                    repeat(2) {
+                        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            repeat(3) { Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.16f))) }
+                        }
+                    }
+                }
+            }
+            HomeStyle.MODERN -> {
+                Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("12:39", fontSize = 24.sp, fontWeight = FontWeight.ExtraLight, color = TextPrimary, lineHeight = 26.sp)
+                    Box(Modifier.width(56.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.18f)))
+                    Spacer(Modifier.weight(1f))
+                    Row(Modifier.fillMaxWidth().height(24.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(Modifier.weight(1.35f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(block))
+                        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(block))
+                        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(block))
+                    }
+                }
+                Box(
+                    Modifier.align(androidx.compose.ui.AbsoluteAlignment.CenterLeft).width(7.dp).height(28.dp)
+                        .clip(androidx.compose.foundation.shape.AbsoluteRoundedCornerShape(topRight = 5.dp, bottomRight = 5.dp))
+                        .background(accent)
+                )
+            }
+            HomeStyle.CUSTOM -> Row(Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(2f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.18f)))
+                    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        repeat(2) { Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(block)) }
+                    }
+                }
+                Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(accent.copy(alpha = 0.55f)))
+                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    repeat(2) { Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(6.dp)).background(block)) }
+                }
+            }
+        }
+    }
+}
+
+/** Pick up to [max] cards and put them in order. */
+@Composable
+private fun CardPicker(selected: List<CardType>, max: Int, accent: Color, onChange: (List<CardType>) -> Unit) {
+    val order = selected + CardType.entries.filter { it !in selected }
+    order.forEach { c ->
+        val on = c in selected
+        val idx = selected.indexOf(c)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (on) accent else Color.Transparent)
+                    .border(2.dp, if (on) accent else TextSecondary, RoundedCornerShape(10.dp))
+                    .clickable {
+                        when {
+                            on -> onChange(selected - c)
+                            selected.size < max -> onChange(selected + c)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) { if (on) Icon(Icons.Rounded.Check, null, tint = onAccent(accent), modifier = Modifier.size(22.dp)) }
+            Spacer(Modifier.width(14.dp))
+            Text(stringResource(cardLabel(c)), fontSize = 17.sp, color = if (on) TextPrimary else TextSecondary, modifier = Modifier.weight(1f))
+            if (on) {
+                GlassIconButton(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up), {
+                    if (idx > 0) onChange(selected.toMutableList().apply { add(idx - 1, removeAt(idx)) })
+                }, size = 56.dp)
+                Spacer(Modifier.width(8.dp))
+                GlassIconButton(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down), {
+                    if (idx < selected.size - 1) onChange(selected.toMutableList().apply { add(idx + 1, removeAt(idx)) })
+                }, size = 56.dp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernSettings(st: SettingsState, act: SettingsActions) {
+    val s = st.settings
+    val a = st.accent
+    Section(stringResource(R.string.modern_home)) {
+        Chips(
+            stringResource(R.string.modern_fill),
+            listOf(stringResource(R.string.modern_fill_shortcuts), stringResource(R.string.modern_fill_today)),
+            ModernFill.entries.indexOf(s.modernFill), a
+        ) { i -> act.update { it.copy(modernFill = ModernFill.entries[i]) } }
+        Toggle(stringResource(R.string.modern_places), s.modernPlaces, a, stringResource(R.string.modern_places_hint)) { v -> act.update { it.copy(modernPlaces = v) } }
+        if (s.modernFill == ModernFill.SHORTCUTS) {
+            Toggle(stringResource(R.string.modern_suggest), s.modernSuggest, a, stringResource(R.string.modern_suggest_hint)) { v -> act.update { it.copy(modernSuggest = v) } }
+            Toggle(stringResource(R.string.modern_reminders), s.modernReminders, a) { v -> act.update { it.copy(modernReminders = v) } }
+        }
+        Chips(
+            stringResource(R.string.modern_center),
+            listOf(stringResource(R.string.modern_center_auto), stringResource(R.string.card_clock), stringResource(R.string.card_speed)),
+            ModernCenter.entries.indexOf(s.modernCenter), a
+        ) { i -> act.update { it.copy(modernCenter = ModernCenter.entries[i]) } }
+        if (s.modernCenter == ModernCenter.AUTO) Hint(stringResource(R.string.modern_center_hint))
+        Toggle(stringResource(R.string.net_sign), s.internetBadge, a, stringResource(R.string.net_sign_hint)) { v -> act.update { it.copy(internetBadge = v) } }
+    }
+    Section(stringResource(R.string.favorites)) {
+        Chips(
+            stringResource(R.string.fav_side),
+            listOf(stringResource(R.string.fav_left), stringResource(R.string.fav_right)),
+            FavSide.entries.indexOf(s.favSide), a
+        ) { i -> act.update { it.copy(favSide = FavSide.entries[i]) } }
+        Hint(stringResource(R.string.fav_side_hint))
+        Chips(stringResource(R.string.fav_count), FAV_COUNTS.map { "$it" }, FAV_COUNTS.indexOf(s.favCount), a) { i ->
+            act.update { it.copy(favCount = FAV_COUNTS[i]) }
+        }
+        Toggle(stringResource(R.string.edge_swipe), s.edgeSwipe, a, stringResource(R.string.edge_swipe_hint)) { v -> act.update { it.copy(edgeSwipe = v) } }
+    }
+    Section(stringResource(R.string.modern_cards)) {
+        Hint(stringResource(R.string.modern_cards_hint, MAX_MODERN_CARDS))
+        CardPicker(s.modernCards, MAX_MODERN_CARDS, a) { list -> act.update { it.copy(modernCards = list) } }
+    }
+}
+
+@Composable
+private fun CustomSettings(st: SettingsState, act: SettingsActions) {
+    val s = st.settings
+    val a = st.accent
+    Section(stringResource(R.string.custom_home)) {
+        Hint(stringResource(R.string.custom_home_hint))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ActionButton(stringResource(R.string.custom_edit), a, filled = true) { act.editCustomLayout() }
+            ActionButton(stringResource(R.string.custom_reset), a) { act.resetCustomLayout() }
+        }
+        Chips(
+            stringResource(R.string.custom_grid),
+            GridSize.entries.map { sizeLabel(it.cols, it.rows) },
+            GridSize.entries.indexOf(st.customGrid), a
+        ) { i -> act.setCustomGrid(GridSize.entries[i]) }
+        Hint(stringResource(R.string.custom_grid_hint))
+        Toggle(stringResource(R.string.custom_drive_layout), s.customDriveLayout, a, stringResource(R.string.custom_drive_layout_hint)) { v ->
+            act.update { it.copy(customDriveLayout = v) }
+        }
+    }
+    Section(stringResource(R.string.favorites)) {
+        Chips(stringResource(R.string.fav_count), FAV_COUNTS.map { "$it" }, FAV_COUNTS.indexOf(s.favCount), a) { i ->
+            act.update { it.copy(favCount = FAV_COUNTS[i]) }
+        }
+        Hint(stringResource(R.string.custom_fav_hint))
     }
 }

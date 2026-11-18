@@ -560,7 +560,11 @@ fun MusicCard(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showArt: Boolean = true,
+    showControls: Boolean = true,
+    /** Only the play/pause button (narrow custom-home widgets) */
+    minimal: Boolean = false
 ) {
     BoxWithConstraints(
         modifier = modifier
@@ -570,7 +574,7 @@ fun MusicCard(
             }
     ) {
         val compact = maxHeight < 210.dp
-        val art = nowPlaying?.art
+        val art = if (showArt) nowPlaying?.art else null
         if (art != null) {
             Image(
                 bitmap = art.asImageBitmap(),
@@ -625,7 +629,7 @@ fun MusicCard(
                     horizontalArrangement = if (spread) Arrangement.SpaceEvenly else Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    GlassIconButton(Icons.Rounded.SkipPrevious, stringResource(R.string.previous), onPrevious, size = small)
+                    if (!minimal) GlassIconButton(Icons.Rounded.SkipPrevious, stringResource(R.string.previous), onPrevious, size = small)
                     GlassIconButton(
                         icon = if (nowPlaying?.isPlaying == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = stringResource(R.string.play_pause),
@@ -634,7 +638,7 @@ fun MusicCard(
                         tint = onAccent(accent),
                         filled = accent
                     )
-                    GlassIconButton(Icons.Rounded.SkipNext, stringResource(R.string.next), onNext, size = small)
+                    if (!minimal) GlassIconButton(Icons.Rounded.SkipNext, stringResource(R.string.next), onNext, size = small)
                 }
             }
         }
@@ -658,14 +662,14 @@ fun MusicCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 titleBlock(Modifier.weight(1f))
-                controls(false)
+                if (showControls) controls(false)
             }
             else -> Column(
                 modifier = Modifier.fillMaxSize().padding(20.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = if (showControls) Arrangement.SpaceBetween else Arrangement.Center
             ) {
                 titleBlock(Modifier.fillMaxWidth())
-                controls(true)
+                if (showControls) controls(true)
             }
         }
     }

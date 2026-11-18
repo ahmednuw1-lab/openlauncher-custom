@@ -95,6 +95,14 @@ import com.carhome.launcher.TILE_SMART
 import com.carhome.launcher.TripStats
 import com.carhome.launcher.WeatherInfo
 import com.carhome.launcher.prayerName
+import com.carhome.launcher.ClockFace
+import com.carhome.launcher.CustomEdit
+import com.carhome.launcher.CustomLayout
+import com.carhome.launcher.DueStatus
+import com.carhome.launcher.GridSize
+import com.carhome.launcher.HomeStyle
+import com.carhome.launcher.NetState
+import com.carhome.launcher.WidgetType
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.foundation.pager.HorizontalPager
@@ -128,7 +136,23 @@ data class HomeState(
     val obdData: ObdData,
     val driving: Boolean,
     val notices: List<Notice>,
-    val parkedOnly: Set<String>
+    val parkedOnly: Set<String>,
+    // 1.3: modern and custom homes
+    /** Really moving (not the driving-mode setting): the modern home's automatic middle switches on this */
+    val moving: Boolean = false,
+    val places: List<Place> = emptyList(),
+    val lat: Double? = null,
+    val lon: Double? = null,
+    /** Direction of travel in degrees, when moving fast enough to know it */
+    val heading: Float? = null,
+    val dueReminders: List<DueStatus> = emptyList(),
+    /** Km left to the next oil change, when the oil reminder is on */
+    val oilLeftKm: Double? = null,
+    val net: NetState = NetState.OFFLINE,
+    val favOpen: Boolean = false,
+    val custom: CustomLayout = CustomLayout(),
+    val customDrive: CustomLayout = CustomLayout(),
+    val customEdit: CustomEdit? = null
 )
 
 /** What the home screen can ask for. */
@@ -153,11 +177,32 @@ class HomeActions(
     val openReminders: () -> Unit,
     val renewReminder: (String) -> Unit,
     val newTrip: () -> Unit,
-    val readCodes: () -> Unit
+    val readCodes: () -> Unit,
+    // 1.3: modern and custom homes
+    val openFavs: () -> Unit = {},
+    val closeFavs: () -> Unit = {},
+    val openInternet: () -> Unit = {},
+    val openPlace: (Place) -> Unit = {},
+    /** Opens what a shortcut holds: an app's package or "place:<id>" */
+    val openShortcut: (String) -> Unit = {},
+    val openDisplaySettings: () -> Unit = {},
+    val startCustomEdit: () -> Unit = {},
+    val endCustomEdit: () -> Unit = {},
+    val changeCustomEdit: ((CustomEdit) -> CustomEdit) -> Unit = {},
+    val changeCustom: (Boolean, (CustomLayout) -> CustomLayout) -> Unit = { _, _ -> },
+    val undoCustom: () -> Unit = {},
+    val addWidget: (WidgetType, Pair<Int, Int>?, ClockFace) -> Unit = { _, _, _ -> },
+    val pickForWidget: (Boolean, String) -> Unit = { _, _ -> },
+    val setCustomGrid: (GridSize) -> Unit = {}
 )
 
 @Composable
 fun HomeScreen(st: HomeState, act: HomeActions) {
+    when (st.settings.homeStyle) {
+        HomeStyle.MODERN -> { ModernHome(st, act); return }
+        HomeStyle.CUSTOM -> { CustomHome(st, act); return }
+        HomeStyle.CLASSIC -> Unit
+    }
     val s = st.settings
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val currentAct by rememberUpdatedState(act)
@@ -219,8 +264,18 @@ private fun InfoColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(if (short) 10.dp else 16.dp)) {
         cards.forEach { card ->
             val m = if (card == CardType.CLOCK && !onlyClock) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().weight(1f)
+            HomeCard(card, st, act, m, short)
+        }
+    }
+    }
+}
+
+/** One info card, as the home screens show it. */
+@Composable
+internal fun HomeCard(card: CardType, st: HomeState, act: HomeActions, m: Modifier, compact: Boolean) {
+    val s = st.settings
             when (card) {
-                CardType.CLOCK -> ClockCard(s, st.driving, m, compact = short)
+                CardType.CLOCK -> ClockCard(s, st.driving, m, compact = compact)
                 CardType.SPEED -> SpeedCard(
                     speedMps = st.speedMps, gpsState = st.gpsState, settings = s, limit = st.limit,
                     overspeed = st.overspeed, accent = st.accent, satellites = st.satellites, fromCar = st.speedFromCar, stale = st.speedStale, approx = st.speedApprox,
@@ -244,9 +299,6 @@ private fun InfoColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
                 CardType.TRIP -> TripCard(st.trip, st.lastTrip, s, st.accent, act.newTrip, m)
                 CardType.CAR -> CarCard(st.obdStatus, st.obdData, s.obd, st.accent, act.readCodes, act.openCarSettings, m)
             }
-        }
-    }
-    }
 }
 
 @Composable
@@ -310,7 +362,7 @@ private fun MainColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
 // ── Notices (break, oil, dust, fog, prayer) ───────────────────────────────────
 
 @Composable
-private fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modifier: Modifier) {
+internal fun NoticeBanner(notice: Notice?, st: HomeState, act: HomeActions, modifier: Modifier) {
     AnimatedVisibility(
         visible = notice != null,
         enter = fadeIn() + slideInVertically { it / 2 },

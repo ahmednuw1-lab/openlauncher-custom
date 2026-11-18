@@ -140,6 +140,19 @@ data class LauncherSettings(
     val iconSize: IconSize = IconSize.MEDIUM,
     val iconShape: IconShape = IconShape.ORIGINAL,
     val cardAlign: CardAlign = CardAlign.CENTER,   // clock and speed centred in their cards (1.2.12)
+    // Home style (1.3): classic stays the default
+    val homeStyle: HomeStyle = HomeStyle.CLASSIC,
+    val modernFill: ModernFill = ModernFill.SHORTCUTS,
+    val modernCenter: ModernCenter = ModernCenter.AUTO,
+    val favSide: FavSide = FavSide.LEFT,
+    val favCount: Int = 9,
+    val modernPlaces: Boolean = true,          // saved places under the clock
+    val modernSuggest: Boolean = true,         // the app usually opened at this time
+    val modernReminders: Boolean = true,       // a car reminder that is due soon
+    val modernCards: List<CardType> = DEFAULT_MODERN_CARDS,
+    val edgeSwipe: Boolean = true,             // swipe in from the favourites edge to open them
+    val internetBadge: Boolean = true,         // internet sign in the modern top bar
+    val customDriveLayout: Boolean = false,    // a separate custom layout while moving
 ) {
     /** The weather strip is on the top bar (also decides whether weather is downloaded). */
     val showWeather: Boolean get() = topBar == TopBar.WEATHER
@@ -292,6 +305,16 @@ class Prefs(context: Context) {
             })
         }
         sp.edit().putString("places", arr.toString()).apply()
+    }
+
+    /** The custom home layout: the usual one, or the one for while moving. Null when never saved. */
+    fun loadCustomLayout(driving: Boolean): CustomLayout? = runCatching {
+        sp.getString(if (driving) "custom_layout_drive" else "custom_layout", null)?.let { layoutFromJson(JSONObject(it)) }
+    }.getOrNull()
+
+    fun saveCustomLayout(l: CustomLayout, driving: Boolean) {
+        val json = runCatching { layoutToJson(l).toString() }.getOrNull() ?: return
+        sp.edit().putString(if (driving) "custom_layout_drive" else "custom_layout", json).apply()
     }
 
     var bubbleX: Int
@@ -585,7 +608,24 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         highContrast = o.optBoolean("highContrast", d.highContrast),
         iconSize = o.enumOr("iconSize", d.iconSize),
         iconShape = o.enumOr("iconShape", d.iconShape),
-        cardAlign = o.enumOr("cardAlign", d.cardAlign)
+        cardAlign = o.enumOr("cardAlign", d.cardAlign),
+        homeStyle = o.enumOr("homeStyle", d.homeStyle),
+        modernFill = o.enumOr("modernFill", d.modernFill),
+        modernCenter = o.enumOr("modernCenter", d.modernCenter),
+        favSide = o.enumOr("favSide", d.favSide),
+        favCount = o.intFrom("favCount", d.favCount, FAV_COUNTS),
+        modernPlaces = o.optBoolean("modernPlaces", d.modernPlaces),
+        modernSuggest = o.optBoolean("modernSuggest", d.modernSuggest),
+        modernReminders = o.optBoolean("modernReminders", d.modernReminders),
+        modernCards = o.optJSONArray("modernCards")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val n = arr.optString(i)
+                CardType.entries.firstOrNull { it.name == n }
+            }.distinct().take(MAX_MODERN_CARDS)
+        } ?: d.modernCards,
+        edgeSwipe = o.optBoolean("edgeSwipe", d.edgeSwipe),
+        internetBadge = o.optBoolean("internetBadge", d.internetBadge),
+        customDriveLayout = o.optBoolean("customDriveLayout", d.customDriveLayout)
     )
 }
 
@@ -677,4 +717,16 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("iconSize", s.iconSize.name)
     put("iconShape", s.iconShape.name)
     put("cardAlign", s.cardAlign.name)
+    put("homeStyle", s.homeStyle.name)
+    put("modernFill", s.modernFill.name)
+    put("modernCenter", s.modernCenter.name)
+    put("favSide", s.favSide.name)
+    put("favCount", s.favCount)
+    put("modernPlaces", s.modernPlaces)
+    put("modernSuggest", s.modernSuggest)
+    put("modernReminders", s.modernReminders)
+    put("modernCards", JSONArray().apply { s.modernCards.forEach { put(it.name) } })
+    put("edgeSwipe", s.edgeSwipe)
+    put("internetBadge", s.internetBadge)
+    put("customDriveLayout", s.customDriveLayout)
 }

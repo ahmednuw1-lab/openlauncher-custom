@@ -40,10 +40,16 @@ data class AppEntry(
 
 enum class Page { HOME, APPS, SETTINGS }
 enum class SettingsPage { HOME_LAYOUT, SPEED, PRAYER, TRIP, STARTUP, DISPLAY, SMART, PERMISSIONS }
-enum class PickFor { TILE, AUTO_APP }
+enum class PickFor { TILE, AUTO_APP, WIDGET }
 
 /** Which page is showing; with [pickFor] the app list is choosing an app. */
 data class Nav(val page: Page = Page.HOME, val pickFor: PickFor? = null, val pickTile: Int = -1)
+
+/**
+ * The custom home's editor: which layout is edited (the one for while moving, or the
+ * usual one), the selected widget, the page shown, and whether the widget library is open.
+ */
+data class CustomEdit(val driving: Boolean = false, val selected: String? = null, val page: Int = 0, val library: Boolean = false)
 
 enum class NoticeKind { CAMERA, BREAK, OIL, DUST, FOG, PRAYER, UPDATE, REMINDER }
 data class Notice(
@@ -69,9 +75,16 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     val settings: StateFlow<LauncherSettings> = core.settings
 
-    /** Both pages one after the other: page 1 is the first [LauncherSettings.tileCount] tiles. */
+    /**
+     * How many tile slots the home screen uses: the tile count on the classic home, the
+     * favourites count on the modern and custom ones (their favourites are the same tiles).
+     */
+    private fun tileSlots(s: LauncherSettings): Int = if (s.homeStyle == HomeStyle.CLASSIC) s.tileCount else s.favCount
+
+    /** Both pages one after the other: page 1 is the first [tileSlots] tiles. The second page is classic only. */
     private fun loadAllTiles(s: LauncherSettings): List<String> =
-        prefs.loadTiles(s.tileCount) + if (s.secondPage) prefs.loadTiles(s.tileCount, "tiles2") else emptyList()
+        prefs.loadTiles(tileSlots(s)) +
+            if (s.secondPage && s.homeStyle == HomeStyle.CLASSIC) prefs.loadTiles(s.tileCount, "tiles2") else emptyList()
 
     private val _tiles = MutableStateFlow(loadAllTiles(settings.value))
     val tiles: StateFlow<List<String>> = _tiles.asStateFlow()
@@ -133,6 +146,12 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Navigation ───────────────────────────────────────────────────────────
     fun goHome() { _nav.value = Nav() }
+
+    // ── Favourites panel (modern and custom home) ───────────────────────────
+    private val _favOpen = MutableStateFlow(false)
+    val favOpen: StateFlow<Boolean> = _favOpen.asStateFlow()
+    fun openFavs() { _favOpen.value = true }
+    fun closeFavs() { _favOpen.value = false }
     fun openApps() { _nav.value = Nav(Page.APPS) }
     fun openSettings() { _nav.value = Nav(Page.SETTINGS) }
     fun openSettingsPage(p: SettingsPage) { _settingsPage.value = p }
@@ -145,6 +164,13 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         when (n.pickFor) {
             PickFor.TILE -> { setTile(n.pickTile, value); goHome() }
             PickFor.AUTO_APP -> { updateSettings { it.copy(autoApp = value) }; _nav.value = Nav(Page.SETTINGS) }
+            PickFor.WIDGET -> {
+                pendingWidget?.let { (driving, id) ->
+                    changeCustom(driving) { CustomGrid.update(it, id) { w -> w.copy(value = value) } }
+                }
+                pendingWidget = null
+                goHome()
+            }
             null -> Unit
         }
     }
@@ -155,7 +181,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (index !in list.indices) return
         list[index] = value
         _tiles.value = list
-        val n = settings.value.tileCount
+        val n = tileSlots(settings.value)
         prefs.saveTiles(list.take(n))
         if (list.size > n) prefs.saveTiles(list.drop(n), "tiles2")
         refreshSmartPick()
@@ -172,7 +198,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     // ── Settings ─────────────────────────────────────────────────────────────
     fun updateSettings(block: (LauncherSettings) -> LauncherSettings) {
         val (old, new) = core.updateSettings(block)
-        if (new.tileCount != old.tileCount || new.secondPage != old.secondPage) {
+        if (tileSlots(new) != tileSlots(old) || new.secondPage != old.secondPage || new.homeStyle != old.homeStyle) {
             // Shrinking only hides the tail (it stays saved); growing brings it back.
             // Turning the second page off hides it; on again brings its tiles back.
             _tiles.value = loadAllTiles(new)
@@ -186,7 +212,101 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (new.nightMode != old.nightMode || new.nightFrom != old.nightFrom || new.nightTo != old.nightTo ||
             new.nightSystem != old.nightSystem || new.nightDim != old.nightDim
         ) updateNight()
-        if (new.smartTile != old.smartTile) refreshSmartPick()
+        if (new.smartTile != old.smartTile || wantsSuggestion(new) != wantsSuggestion(old)) refreshSmartPick()
+        if (new.customDriveLayout && !old.customDriveLayout && prefs.loadCustomLayout(true) == null) {
+            // The first time: the moving layout starts as a copy of the usual one
+            _customDrive.value = _custom.value
+            prefs.saveCustomLayout(_custom.value, true)
+        }
+        if (new.homeStyle != old.homeStyle) { endCustomEdit(); closeFavs() }
+    }
+
+    // ── Custom home (1.3) ─────────────────────────────────────────────────────
+    private val _custom = MutableStateFlow(prefs.loadCustomLayout(false) ?: CustomGrid.defaultLayout())
+    val customLayout: StateFlow<CustomLayout> = _custom.asStateFlow()
+
+    private val _customDrive = MutableStateFlow(prefs.loadCustomLayout(true) ?: _custom.value)
+    /** The layout used while moving, when the user wants a separate one. */
+    val customDriveLayout: StateFlow<CustomLayout> = _customDrive.asStateFlow()
+
+    private val _customEdit = MutableStateFlow<CustomEdit?>(null)
+    /** Non-null while the custom home is being edited. */
+    val customEdit: StateFlow<CustomEdit?> = _customEdit.asStateFlow()
+
+    /** The shortcut widget waiting for the app list's choice: (moving layout?, widget id). */
+    private var pendingWidget: Pair<Boolean, String>? = null
+    private val undoStack = ArrayDeque<Pair<Boolean, CustomLayout>>()
+
+    private fun layoutFlow(driving: Boolean) = if (driving) _customDrive else _custom
+
+    fun startCustomEdit() {
+        closeFavs()
+        _customEdit.value = CustomEdit()
+        goHome()
+    }
+
+    fun endCustomEdit() {
+        _customEdit.value = null
+        undoStack.clear()
+    }
+
+    fun changeCustomEdit(block: (CustomEdit) -> CustomEdit) {
+        _customEdit.value?.let { _customEdit.value = block(it) }
+    }
+
+    /** Changes a layout, saves it, and remembers the old one for Undo. */
+    fun changeCustom(driving: Boolean, block: (CustomLayout) -> CustomLayout) {
+        val flow = layoutFlow(driving)
+        val old = flow.value
+        val new = block(old)
+        if (new == old) return
+        undoStack.addLast(driving to old)
+        while (undoStack.size > 30) undoStack.removeFirst()
+        flow.value = new
+        prefs.saveCustomLayout(new, driving)
+    }
+
+    fun undoCustom() {
+        val (driving, l) = undoStack.removeLastOrNull() ?: return
+        layoutFlow(driving).value = l
+        prefs.saveCustomLayout(l, driving)
+    }
+
+    /** Adds a widget on the page being edited; a shortcut then asks which app or place. */
+    fun addWidget(type: WidgetType, size: Pair<Int, Int>?, face: ClockFace) {
+        val edit = _customEdit.value ?: return
+        val id = UUID.randomUUID().toString()
+        val l = CustomGrid.add(layoutFlow(edit.driving).value, type, edit.page, id, size, face = face)
+        if (l == null) { toast(R.string.custom_no_room); return }
+        changeCustom(edit.driving) { l }
+        val placed = CustomGrid.find(l, id)
+        _customEdit.value = edit.copy(selected = id, library = false, page = placed?.page ?: edit.page)
+        if (type == WidgetType.SHORTCUT) pickForWidget(edit.driving, id)
+    }
+
+    fun pickForWidget(driving: Boolean, id: String) {
+        pendingWidget = driving to id
+        _nav.value = Nav(Page.APPS, PickFor.WIDGET)
+    }
+
+    /** A new grid size for both layouts (the widgets are moved to fit). */
+    fun setCustomGrid(g: GridSize) {
+        for (driving in listOf(false, true)) changeCustom(driving) { CustomGrid.regrid(it, g) }
+    }
+
+    fun resetCustom() {
+        val g = _custom.value.grid
+        for (driving in listOf(false, true)) changeCustom(driving) { CustomGrid.defaultLayout(g) }
+        undoStack.clear()
+    }
+
+    /** An uninstalled app or a deleted place leaves its shortcuts empty. */
+    private fun forgetInCustom(value: String) {
+        for (driving in listOf(false, true)) {
+            val flow = layoutFlow(driving)
+            val new = CustomGrid.forget(flow.value, value)
+            if (new != flow.value) { flow.value = new; prefs.saveCustomLayout(new, driving) }
+        }
     }
 
     // ── Apps ─────────────────────────────────────────────────────────────────
@@ -238,6 +358,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 val pkg = intent.data?.schemeSpecificPart ?: return
                 _tiles.value.forEachIndexed { i, p -> if (p == pkg) setTile(i, "") }
                 prefs.forgetTile(pkg)
+                forgetInCustom(pkg)
             }
         }
     }
@@ -269,6 +390,15 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Opens a custom-home shortcut: an app's package, or "place:<id>". */
+    fun openShortcut(value: String) {
+        if (value.startsWith(TILE_PLACE)) {
+            _places.value.firstOrNull { it.id == value.removePrefix(TILE_PLACE) }?.let { navigateTo(it) }
+        } else if (value.isNotEmpty()) {
+            launchApp(value)
+        }
+    }
+
     fun toggleParkedOnly(pkg: String) {
         val set = _parkedOnly.value.toMutableSet()
         if (!set.add(pkg)) set.remove(pkg)
@@ -288,8 +418,12 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         refreshSmartPick()
     }
 
+    /** The modern home's suggestion chip uses the smart tile's choice. */
+    private fun wantsSuggestion(s: LauncherSettings): Boolean =
+        s.homeStyle == HomeStyle.MODERN && s.modernFill == ModernFill.SHORTCUTS && s.modernSuggest
+
     private fun refreshSmartPick() {
-        if (!settings.value.smartTile) { _smartPick.value = null; return }
+        if (!settings.value.smartTile && !wantsSuggestion(settings.value)) { _smartPick.value = null; return }
         val b = bucket()
         val onTiles = _tiles.value.toSet()
         val installed = _apps.value.map { it.packageName }.toSet()
@@ -319,6 +453,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         prefs.savePlaces(_places.value)
         _tiles.value.forEachIndexed { i, v -> if (v == TILE_PLACE + id) setTile(i, "") }
         prefs.forgetTile(TILE_PLACE + id)
+        forgetInCustom(TILE_PLACE + id)
     }
 
     fun navigateTo(p: Place) {
@@ -445,7 +580,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 val kicked = weatherKick.value != lastKick || (loc != null && !hadLocation)
                 val s = settings.value
                 val wanted = s.showWeather || CardType.WEATHER in s.cards || s.dustWarning ||
-                    s.background == Background.SKY || s.welcome || s.parkedScreen
+                    s.background == Background.SKY || s.welcome || s.parkedScreen || s.homeStyle != HomeStyle.CLASSIC
                 if (wanted && loc != null && (kicked || now >= nextAt)) {
                     lastKick = weatherKick.value
                     hadLocation = true
@@ -541,6 +676,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             _weather.value?.fogInHours?.let { h -> if ("FOG" !in dismissed) list += Notice(NoticeKind.FOG, hours = h) }
         }
         // Car paperwork and maintenance: while parked, the most urgent first
+        val due = if (s.carReminders) Reminders.due(_reminders.value, now, engine.odometerKm.value) else emptyList()
+        if (due != _due.value) _due.value = due
         if (s.carReminders && !engine.moving.value) {
             Reminders.due(_reminders.value, now, engine.odometerKm.value, reminderSnooze).forEach { st ->
                 list += Notice(NoticeKind.REMINDER, due = st)
@@ -563,6 +700,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     // ── Car reminders ─────────────────────────────────────────────────────────
     private val _reminders = MutableStateFlow(prefs.loadReminders())
     val reminders: StateFlow<List<CarReminder>> = _reminders.asStateFlow()
+
+    private val _due = MutableStateFlow<List<DueStatus>>(emptyList())
+    /** Reminders due soon (snoozed ones too), for the modern and custom homes' "Today". */
+    val dueReminders: StateFlow<List<DueStatus>> = _due.asStateFlow()
     private var reminderSnooze: Map<String, Long> = prefs.loadReminderSnooze()
 
     fun addReminder(r: CarReminder) {
