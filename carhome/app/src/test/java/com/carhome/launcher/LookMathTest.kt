@@ -2,6 +2,7 @@ package com.carhome.launcher
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The weather strip's hours and the speed gauge's scale. */
@@ -74,5 +75,48 @@ class LookMathTest {
         val max = LookMath.gaugeMax(true, 220)
         assertEquals(260f, max, 0f)
         assertEquals(true, LookMath.redZoneStart(220, max) != null)
+    }
+
+    // ── The half-circle gauge always fits its card ──
+
+    @Test fun wideLowCardPutsTheTextBesideTheGauge() {
+        val f = LookMath.semiGaugeFit(500f, 130f)
+        assertEquals(LookMath.SpeedFit.SIDE, f.layout)
+        assertEquals(130f, f.gaugeHeight, 0.01f)
+    }
+
+    @Test fun squarerCardPutsTheTextUnderTheGauge() {
+        // Like the speed box on the custom home screen
+        val f = LookMath.semiGaugeFit(240f, 140f)
+        assertEquals(LookMath.SpeedFit.STACKED, f.layout)
+        assertEquals(110f, f.gaugeHeight, 0.01f)
+    }
+
+    @Test fun tooSmallACardShowsTheNumber() {
+        assertEquals(LookMath.SpeedFit.NUMBER, LookMath.semiGaugeFit(120f, 60f).layout)
+        assertEquals(LookMath.SpeedFit.NUMBER, LookMath.semiGaugeFit(0f, 100f).layout)
+        assertEquals(LookMath.SpeedFit.NUMBER, LookMath.semiGaugeFit(Float.NaN, 100f).layout)
+    }
+
+    @Test fun theGaugeNeverSpillsOutOfAnyCard() {
+        var w = 60f
+        while (w <= 900f) {
+            var h = 40f
+            while (h <= 150f) {
+                val f = LookMath.semiGaugeFit(w, h)
+                when (f.layout) {
+                    LookMath.SpeedFit.SIDE -> {
+                        assertTrue("side $w x $h", f.gaugeHeight * 2f + 96f + 12f <= w + 0.01f && f.gaugeHeight <= h + 0.01f)
+                    }
+                    LookMath.SpeedFit.STACKED -> {
+                        assertTrue("stacked $w x $h", f.gaugeHeight * 2f <= w + 0.01f && f.gaugeHeight + 26f + 4f <= h + 0.01f)
+                    }
+                    LookMath.SpeedFit.NUMBER -> assertEquals(0f, f.gaugeHeight, 0f)
+                }
+                if (f.layout != LookMath.SpeedFit.NUMBER) assertTrue(f.gaugeHeight >= 56f)
+                h += 5f
+            }
+            w += 10f
+        }
     }
 }

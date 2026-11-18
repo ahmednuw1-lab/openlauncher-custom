@@ -7,6 +7,34 @@ object LookMath {
     fun hourCells(widthDp: Float, minCellDp: Float = 58f): Int =
         if (!widthDp.isFinite() || widthDp <= 0f || minCellDp <= 0f) 0 else (widthDp / minCellDp).toInt()
 
+    /** How the half-circle speed gauge sits in a low card. */
+    enum class SpeedFit { SIDE, STACKED, NUMBER }
+
+    /** The chosen layout and the gauge's height in dp (0 for [SpeedFit.NUMBER]). */
+    data class SemiFit(val layout: SpeedFit, val gaugeHeight: Float)
+
+    /**
+     * Fits the half-circle gauge (twice as wide as it is tall) into a card of
+     * [width] × [height] dp, with room for its text ([textWidth] × [textHeight]):
+     * the text beside the gauge on a wide card, under it on a squarer one.
+     * Whichever gives the bigger gauge wins; a card too small for even a
+     * [minGauge]-high gauge shows the plain number instead.
+     */
+    fun semiGaugeFit(
+        width: Float, height: Float,
+        textWidth: Float = 96f, textHeight: Float = 26f, gap: Float = 12f, minGauge: Float = 56f
+    ): SemiFit {
+        if (!width.isFinite() || !height.isFinite() || width <= 0f || height <= 0f) return SemiFit(SpeedFit.NUMBER, 0f)
+        val side = minOf(height, (width - textWidth - gap) / 2f)
+        val stacked = minOf(height - textHeight - 4f, width / 2f)
+        return when {
+            side >= minGauge && side >= stacked -> SemiFit(SpeedFit.SIDE, side)
+            stacked >= minGauge -> SemiFit(SpeedFit.STACKED, stacked)
+            side >= minGauge -> SemiFit(SpeedFit.SIDE, side)
+            else -> SemiFit(SpeedFit.NUMBER, 0f)
+        }
+    }
+
     /** Where a speed sits on the gauge: 0 (empty) … 1 (full scale). */
     fun gaugeFraction(value: Float, maxScale: Float): Float =
         if (!value.isFinite() || maxScale <= 0f) 0f else (value / maxScale).coerceIn(0f, 1f)

@@ -402,19 +402,39 @@ fun SpeedCard(
                 }
 
                 if (compact) {
-                    // Low cards (wide, low car screens): a half-circle gauge with the number
-                    // inside it, as tall as the card allows. Only a card too low even for
-                    // that falls back to the number with a thin bar.
-                    val h = maxHeight
-                    val semi = settings.speedStyle == SpeedStyle.GAUGE && h >= 56.dp
+                    // Low cards: a half-circle gauge with the number inside it, sized to fit
+                    // the card both ways (it is twice as wide as it is tall). On a wide card
+                    // the text sits beside it; on a squarer card, under it. Only a card too
+                    // small even for that falls back to the number with a thin bar.
+                    val sign = settings.roadLimit && limit.roadLimit != null
+                    val fit = if (settings.speedStyle == SpeedStyle.GAUGE)
+                        LookMath.semiGaugeFit(maxWidth.value, maxHeight.value, textWidth = if (sign) 148f else 96f, textHeight = if (sign) 32f else 26f)
+                    else LookMath.SemiFit(LookMath.SpeedFit.NUMBER, 0f)
+                    val semi = fit.layout != LookMath.SpeedFit.NUMBER
                     // Centred: the gauge and its text sit together in the middle of the card
                     val centred = settings.cardAlign == CardAlign.CENTER
+                    if (fit.layout == LookMath.SpeedFit.STACKED) {
+                        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            SemiGauge(shownState, maxScale, redFrom, arcColor, number, numberColor, fit.gaugeHeight.dp)
+                            Spacer(Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                                Text(unitText, fontSize = 14.sp, color = TextSecondary, maxLines = 1)
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.weight(1f, fill = false)) { status() }
+                                if (sign) {
+                                    Spacer(Modifier.width(8.dp))
+                                    RoadSign(limit.roadLimit!!, 28.dp)
+                                }
+                            }
+                        }
+                        return@BoxWithConstraints
+                    }
                     Row(
                         Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = if (centred) Arrangement.Center else Arrangement.Start
                     ) {
                         if (semi) {
-                            SemiGauge(shownState, maxScale, redFrom, arcColor, number, numberColor, h)
+                            SemiGauge(shownState, maxScale, redFrom, arcColor, number, numberColor, fit.gaugeHeight.dp)
                         } else {
                             Text(number, fontSize = 46.sp, fontWeight = FontWeight.Light, color = numberColor, lineHeight = 48.sp, maxLines = 1)
                         }
