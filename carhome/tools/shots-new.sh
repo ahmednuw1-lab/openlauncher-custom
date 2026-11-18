@@ -106,12 +106,16 @@ shot 53-weather-sizes
 adb shell cmd locale set-app-locales $PKG --locales ar || true
 prefs "$WEATHERH" "$APPS7" "$BOOT" "$SEEN$WLAYOUT"
 start
-sleep 16
+sleep 4
+adb emu geo fix 49.5887 25.3834
+sleep 26
 shot 54-weather-sizes-arabic
 adb shell cmd locale set-app-locales $PKG --locales en || true
 prefs "${WEATHERH%\}},\"use24h\":true}" "$APPS7" "$BOOT" "$SEEN$WLAYOUT"
 start
-sleep 16
+sleep 4
+adb emu geo fix 49.5886 25.3833
+sleep 26
 shot 55-weather-sizes-24h
 
 adb shell wm size 1280x720
