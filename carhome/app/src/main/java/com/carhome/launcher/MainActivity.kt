@@ -274,7 +274,7 @@ class MainActivity : ComponentActivity() {
             val net = if (showsNet) core.net.state.collectAsStateWithLifecycle().value else NetState.NOT_CONNECTED
             val location by vm.engine.location.collectAsStateWithLifecycle()
             // 1.4: the next turn from Google Maps, and whether a map is on the home screen
-            val nav by MediaService.nav.collectAsStateWithLifecycle()
+            val navTurn by MediaService.nav.collectAsStateWithLifecycle()
             val usesMap = s.homeStyle == HomeStyle.DASHBOARD || (s.homeStyle == HomeStyle.CUSTOM &&
                 (custom.widgets + customDrive.widgets).any { it.type == WidgetType.MAP })
 
@@ -335,7 +335,7 @@ class MainActivity : ComponentActivity() {
                                         custom = custom, customDrive = customDrive, customEdit = customEdit,
                                         night = sun?.let { (rise, set) -> val now = System.currentTimeMillis(); now < rise || now > set } ?: false,
                                         cameras = if (usesMap) core.cameras.all else emptyList(),
-                                        nav = if (s.navCard) nav else null
+                                        nav = if (s.navCard) navTurn else null
                                     ),
                                     homeActions
                                 )

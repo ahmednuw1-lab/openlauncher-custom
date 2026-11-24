@@ -68,7 +68,7 @@ class MediaService : NotificationListenerService() {
     // fallback, so ignore everything except media ones (progress, chats, downloads…)
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (isMedia(sbn)) refresh()
-        if (sbn?.packageName in NavParse.NAV_APPS) readNav(sbn)
+        if (isNavApp(sbn?.packageName)) readNav(sbn)
     }
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         if (isMedia(sbn)) refresh()
@@ -77,12 +77,23 @@ class MediaService : NotificationListenerService() {
 
     // ── Navigation (1.4): the next turn from Google Maps' own notification ──────
 
+    /**
+     * Test builds only (never a release): a notification posted from the command line
+     * (`adb shell cmd notification post -t "300 m" …`) counts as Google Maps', so the
+     * emulator screenshots can show the next-turn card.
+     */
+    private val shellAsNav by lazy { (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
+
+    private fun isNavApp(pkg: String?): Boolean = pkg in NavParse.NAV_APPS || (shellAsNav && pkg == SHELL)
+
     private fun readNav(sbn: StatusBarNotification?) {
         val n = sbn?.notification ?: return
         val x = n.extras ?: return
         val title = NavParse.clean(x.getCharSequence(android.app.Notification.EXTRA_TITLE))
         val ongoing = (n.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
-        if (!NavParse.isNav(sbn.packageName, ongoing, n.category, n.channelId, title)) {
+        val isNav = if (shellAsNav && sbn.packageName == SHELL) NavParse.looksLikeDistance(title)
+            else NavParse.isNav(sbn.packageName, ongoing, n.category, n.channelId, title)
+        if (!isNav) {
             // The same notification can stop being a navigation one (the trip ended)
             if (sbn.key == _nav.value?.key) _nav.value = null
             return
@@ -110,7 +121,7 @@ class MediaService : NotificationListenerService() {
 
     private fun scanNav() {
         val active = runCatching { activeNotifications }.getOrNull().orEmpty()
-            .filter { it.packageName in NavParse.NAV_APPS }
+            .filter { isNavApp(it.packageName) }
         active.forEach { readNav(it) }
         if (active.none { it.key == _nav.value?.key }) _nav.value = null
     }
@@ -194,6 +205,7 @@ class MediaService : NotificationListenerService() {
     }
 
     companion object {
+        private const val SHELL = "com.android.shell"
         private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
         val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying
 
