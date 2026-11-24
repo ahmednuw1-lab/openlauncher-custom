@@ -12,6 +12,7 @@ import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -50,6 +51,7 @@ class MediaService : NotificationListenerService() {
             )
         }
         refresh()
+        runCatching { scanNav() }
     }
 
     override fun onListenerDisconnected() {
@@ -64,8 +66,65 @@ class MediaService : NotificationListenerService() {
 
     // Session and controller callbacks already report changes; notifications are only a
     // fallback, so ignore everything except media ones (progress, chats, downloads…)
-    override fun onNotificationPosted(sbn: StatusBarNotification?) { if (isMedia(sbn)) refresh() }
-    override fun onNotificationRemoved(sbn: StatusBarNotification?) { if (isMedia(sbn)) refresh() }
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        if (isMedia(sbn)) refresh()
+        if (isNavApp(sbn?.packageName)) readNav(sbn)
+    }
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        if (isMedia(sbn)) refresh()
+        if (sbn != null && sbn.key == _nav.value?.key) _nav.value = null
+    }
+
+    // ── Navigation (1.4): the next turn from Google Maps' own notification ──────
+
+    /**
+     * Test builds only (never a release): a notification posted from the command line
+     * (`adb shell cmd notification post -t "300 m" …`) counts as Google Maps', so the
+     * emulator screenshots can show the next-turn card.
+     */
+    private val shellAsNav by lazy { (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
+
+    private fun isNavApp(pkg: String?): Boolean = pkg in NavParse.NAV_APPS || (shellAsNav && pkg == SHELL)
+
+    private fun readNav(sbn: StatusBarNotification?) {
+        val n = sbn?.notification ?: return
+        val x = n.extras ?: return
+        val title = NavParse.clean(x.getCharSequence(android.app.Notification.EXTRA_TITLE))
+        val ongoing = (n.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
+        val isNav = if (shellAsNav && sbn.packageName == SHELL) NavParse.looksLikeDistance(title)
+            else NavParse.isNav(sbn.packageName, ongoing, n.category, n.channelId, title)
+        if (!isNav) {
+            // The same notification can stop being a navigation one (the trip ended)
+            if (sbn.key == _nav.value?.key) _nav.value = null
+            return
+        }
+        val info = NavParse.info(
+            x.getCharSequence(android.app.Notification.EXTRA_TITLE),
+            x.getCharSequence(android.app.Notification.EXTRA_TEXT),
+            x.getCharSequence(android.app.Notification.EXTRA_SUB_TEXT),
+            x.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT),
+            null, sbn.packageName, sbn.key
+        )
+        val old = _nav.value
+        if (info == null) { if (old?.key == sbn.key) _nav.value = null; return }
+        // Google Maps posts again every few seconds: only a real change goes on screen
+        if (old != null && old.key == info.key && old.title == info.title && old.text == info.text && old.sub == info.sub) return
+        // The turn arrow Google Maps draws (its large icon), at a size the card can use
+        val icon = runCatching {
+            n.getLargeIcon()?.loadDrawable(this)?.let { d ->
+                val size = (48 * resources.displayMetrics.density).toInt().coerceAtLeast(24)
+                d.toBitmap(size, size)
+            }
+        }.getOrNull()
+        _nav.value = info.copy(icon = icon)
+    }
+
+    private fun scanNav() {
+        val active = runCatching { activeNotifications }.getOrNull().orEmpty()
+            .filter { isNavApp(it.packageName) }
+        active.forEach { readNav(it) }
+        if (active.none { it.key == _nav.value?.key }) _nav.value = null
+    }
 
     private fun isMedia(sbn: StatusBarNotification?): Boolean {
         val n = sbn?.notification ?: return false
@@ -85,6 +144,7 @@ class MediaService : NotificationListenerService() {
         active?.unregisterCallback(controllerCallback)
         active = null
         _nowPlaying.value = null
+        _nav.value = null
     }
 
     private fun sessionManager() = getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
@@ -145,8 +205,13 @@ class MediaService : NotificationListenerService() {
     }
 
     companion object {
+        private const val SHELL = "com.android.shell"
         private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
         val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying
+
+        private val _nav = MutableStateFlow<NavInfo?>(null)
+        /** The next turn while Google Maps navigates (1.4); null otherwise. */
+        val nav: StateFlow<NavInfo?> = _nav
 
         @Volatile private var instance: MediaService? = null
         fun requestRefresh(context: Context? = null) {

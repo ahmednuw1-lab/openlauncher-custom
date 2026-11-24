@@ -9,6 +9,8 @@ object Net {
     const val MAX_WEATHER = 512 * 1024
     /** Map answers (roads, cameras) for a small area */
     const val MAX_MAP = 2 * 1024 * 1024
+    /** One map tile (a 256 px PNG is 5–60 KB) */
+    const val MAX_TILE = 1024 * 1024
     /** GitHub's "latest release" answer */
     const val MAX_RELEASE_INFO = 512 * 1024
     /** A CarHome APK is about 11 MB; nothing larger is ever downloaded */

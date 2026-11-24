@@ -203,7 +203,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             // Turning the second page off hides it; on again brings its tiles back.
             _tiles.value = loadAllTiles(new)
         }
-        if (new.bubble != old.bubble || new.backgroundTracking != old.backgroundTracking) DriveService.sync(ctx)
+        if (new.bubble != old.bubble || new.backgroundTracking != old.backgroundTracking || new.mapsStrip != old.mapsStrip) DriveService.sync(ctx)
         if (new.obd != old.obd || new.obdAddress != old.obdAddress) core.obd.sync()
         if (new.voice && !old.voice) core.voice.prepare()
         if (new.dustWarning && !old.dustWarning) refreshWeatherSoon()
@@ -463,6 +463,16 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 if (p.lat != null && p.lon != null) "geo:${p.lat},${p.lon}?q=${p.lat},${p.lon}(${Uri.encode(p.name)})"
                 else "geo:0,0?q=${Uri.encode(p.address)}"
             )))
+        if (!ok) toast(R.string.no_maps)
+    }
+
+    /** Google Maps: back to the route while navigating, else to look for a place (1.4). */
+    fun openNavApp() {
+        val ok = runCatching {
+            val i = ctx.packageManager.getLaunchIntentForPackage(NavParse.GOOGLE_MAPS) ?: return@runCatching false
+            ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
+            true
+        }.getOrDefault(false) || tryStart(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=")))
         if (!ok) toast(R.string.no_maps)
     }
 

@@ -6,6 +6,9 @@ import com.carhome.launcher.FavSide
 import com.carhome.launcher.GridSize
 import com.carhome.launcher.HomeStyle
 import com.carhome.launcher.MAX_MODERN_CARDS
+import com.carhome.launcher.MAX_DASH_CARDS
+import com.carhome.launcher.DASH_MAP_WIDTHS
+import com.carhome.launcher.MapLook
 import com.carhome.launcher.ModernCenter
 import com.carhome.launcher.ModernFill
 import com.carhome.launcher.CardFill
@@ -67,6 +70,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Mosque
 import androidx.compose.material.icons.rounded.Notifications
@@ -511,6 +515,7 @@ private fun HomeLayoutPage(st: SettingsState, act: SettingsActions) {
     when (s.homeStyle) {
         HomeStyle.MODERN -> ModernSettings(st, act)
         HomeStyle.CUSTOM -> CustomSettings(st, act)
+        HomeStyle.DASHBOARD -> DashboardSettings(st, act)
         HomeStyle.CLASSIC -> Unit
     }
     if (classic) Section(stringResource(R.string.home_tiles)) {
@@ -1397,12 +1402,14 @@ private fun styleName(h: HomeStyle): Int = when (h) {
     HomeStyle.CLASSIC -> R.string.style_classic
     HomeStyle.MODERN -> R.string.style_modern
     HomeStyle.CUSTOM -> R.string.style_custom
+    HomeStyle.DASHBOARD -> R.string.style_dashboard
 }
 
 private fun styleDesc(h: HomeStyle): Int = when (h) {
     HomeStyle.CLASSIC -> R.string.style_classic_desc
     HomeStyle.MODERN -> R.string.style_modern_desc
     HomeStyle.CUSTOM -> R.string.style_custom_desc
+    HomeStyle.DASHBOARD -> R.string.style_dashboard_desc
 }
 
 /** The three home screens side by side, each with a small picture of itself. */
@@ -1479,6 +1486,17 @@ private fun StylePreview(style: HomeStyle, accent: Color, modifier: Modifier) {
                         .clip(androidx.compose.foundation.shape.AbsoluteRoundedCornerShape(topRight = 5.dp, bottomRight = 5.dp))
                         .background(accent)
                 )
+            }
+            HomeStyle.DASHBOARD -> Row(Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.Absolute.spacedBy(4.dp)) {
+                // A map with a road and you on it, then a column of cards
+                Box(Modifier.weight(0.6f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A2540))) {
+                    Box(Modifier.align(Alignment.Center).width(6.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.18f)))
+                    Box(Modifier.align(Alignment.Center).size(10.dp).clip(CircleShape).background(accent))
+                }
+                Column(Modifier.weight(0.4f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.fillMaxWidth().weight(1.2f).clip(RoundedCornerShape(6.dp)).background(block))
+                    Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(6.dp)).background(accent.copy(alpha = 0.45f)))
+                }
             }
             HomeStyle.CUSTOM -> Row(Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Column(Modifier.weight(2f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1599,5 +1617,77 @@ private fun CustomSettings(st: SettingsState, act: SettingsActions) {
             act.update { it.copy(favCount = FAV_COUNTS[i]) }
         }
         Hint(stringResource(R.string.custom_fav_hint))
+    }
+}
+
+@Composable
+private fun DashboardSettings(st: SettingsState, act: SettingsActions) {
+    val s = st.settings
+    val a = st.accent
+    Section(stringResource(R.string.dash_home)) {
+        Chips(
+            stringResource(R.string.dash_map_side),
+            listOf(stringResource(R.string.dash_side_left), stringResource(R.string.fav_right)),
+            FavSide.entries.indexOf(s.dashMapSide), a
+        ) { i -> act.update { it.copy(dashMapSide = FavSide.entries[i]) } }
+        Chips(stringResource(R.string.dash_map_width), DASH_MAP_WIDTHS.map { "$it%" }, DASH_MAP_WIDTHS.indexOf(s.dashMapWidth), a) { i ->
+            act.update { it.copy(dashMapWidth = DASH_MAP_WIDTHS[i]) }
+        }
+        Toggle(stringResource(R.string.dash_places_row), s.dashPlacesRow, a, stringResource(R.string.dash_places_row_hint)) { v -> act.update { it.copy(dashPlacesRow = v) } }
+        Toggle(stringResource(R.string.net_sign), s.internetBadge, a, stringResource(R.string.net_sign_hint)) { v -> act.update { it.copy(internetBadge = v) } }
+    }
+    Section(stringResource(R.string.dash_cards)) {
+        Hint(stringResource(R.string.dash_cards_hint, MAX_DASH_CARDS))
+        CardPicker(s.dashCards, MAX_DASH_CARDS, a) { list -> act.update { it.copy(dashCards = list) } }
+    }
+    MapSettings(st, act)
+    NavSettings(st, act)
+}
+
+/** The map's own choices: on the dashboard and in the custom home's map widget. */
+@Composable
+private fun MapSettings(st: SettingsState, act: SettingsActions) {
+    val s = st.settings
+    val a = st.accent
+    Section(stringResource(R.string.map)) {
+        Chips(
+            stringResource(R.string.map_look),
+            listOf(stringResource(R.string.map_look_dark), stringResource(R.string.map_look_light), stringResource(R.string.map_look_night)),
+            MapLook.entries.indexOf(s.mapLook), a
+        ) { i -> act.update { it.copy(mapLook = MapLook.entries[i]) } }
+        Toggle(stringResource(R.string.map_auto_zoom), s.mapAutoZoom, a, stringResource(R.string.map_auto_zoom_hint)) { v -> act.update { it.copy(mapAutoZoom = v) } }
+        Toggle(stringResource(R.string.map_places), s.mapPlaces, a) { v -> act.update { it.copy(mapPlaces = v) } }
+        Toggle(stringResource(R.string.map_cameras), s.mapCameras, a, stringResource(R.string.map_cameras_hint)) { v -> act.update { it.copy(mapCameras = v) } }
+        Hint(stringResource(R.string.map_source_hint))
+    }
+}
+
+/** While Google Maps navigates: the next-turn card and the strip over Google Maps. */
+@Composable
+private fun NavSettings(st: SettingsState, act: SettingsActions) {
+    val s = st.settings
+    val a = st.accent
+    Section(stringResource(R.string.nav_settings)) {
+        Toggle(stringResource(R.string.nav_card), s.navCard, a, stringResource(R.string.nav_card_hint)) { v ->
+            act.update { it.copy(navCard = v) }
+            if (v && !st.hasMusicAccess) act.musicAccess()
+        }
+        if (s.navCard) AccessRow(Icons.Rounded.Notifications, stringResource(R.string.music_access), st.hasMusicAccess, a, act.musicAccess)
+        Toggle(stringResource(R.string.strip_on), s.mapsStrip, a, stringResource(R.string.strip_hint)) { v ->
+            act.update { it.copy(mapsStrip = v) }
+            if (v && !st.canOverlay) act.overlayAccess()
+            if (v && !st.hasMusicAccess) act.musicAccess()
+        }
+        if (s.mapsStrip) {
+            AccessRow(Icons.Rounded.Layers, stringResource(R.string.overlay_access), st.canOverlay, a, act.overlayAccess)
+            if (!st.hasFineLocation) AccessRow(Icons.Rounded.MyLocation, stringResource(R.string.location_access), false, a, act.locationAccess)
+            Chips(
+                stringResource(R.string.strip_side),
+                listOf(stringResource(R.string.dash_side_left), stringResource(R.string.fav_right)),
+                FavSide.entries.indexOf(s.stripSide), a
+            ) { i -> act.update { it.copy(stripSide = FavSide.entries[i]) } }
+            Toggle(stringResource(R.string.strip_speed), s.stripSpeed, a) { v -> act.update { it.copy(stripSpeed = v) } }
+            Toggle(stringResource(R.string.strip_music), s.stripMusic, a) { v -> act.update { it.copy(stripMusic = v) } }
+        }
     }
 }

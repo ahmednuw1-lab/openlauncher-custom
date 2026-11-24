@@ -153,12 +153,29 @@ data class LauncherSettings(
     val edgeSwipe: Boolean = true,             // swipe in from the favourites edge to open them
     val internetBadge: Boolean = true,         // internet sign in the modern top bar
     val customDriveLayout: Boolean = false,    // a separate custom layout while moving
+    // Dashboard home and the map (1.4)
+    val dashMapSide: FavSide = FavSide.LEFT,   // the map on the driver's side
+    val dashMapWidth: Int = 60,                // percent of the screen
+    val mapLook: MapLook = MapLook.DARK,
+    val mapAutoZoom: Boolean = true,           // further out the faster you go
+    val mapPlaces: Boolean = true,             // saved places on the map
+    val mapCameras: Boolean = true,            // speed cameras on the map (when camera warnings are on)
+    val dashCards: List<CardType> = DEFAULT_DASH_CARDS,
+    val dashPlacesRow: Boolean = true,         // Home, Work and the next prayer under the cards
+    val navCard: Boolean = true,               // the next turn while Google Maps navigates
+    val mapsStrip: Boolean = false,            // a strip over Google Maps while it navigates
+    val stripSide: FavSide = FavSide.LEFT,
+    val stripSpeed: Boolean = true,
+    val stripMusic: Boolean = true,
 ) {
     /** The weather strip is on the top bar (also decides whether weather is downloaded). */
     val showWeather: Boolean get() = topBar == TopBar.WEATHER
 }
 
 val DEFAULT_CARDS = listOf(CardType.CLOCK, CardType.SPEED, CardType.MUSIC)
+val DEFAULT_DASH_CARDS = listOf(CardType.SPEED, CardType.MUSIC)
+const val MAX_DASH_CARDS = 3
+val DASH_MAP_WIDTHS = listOf(50, 60, 70)
 const val MAX_CARDS = 4
 val SPEED_MARGINS = listOf(0, 5, 10)
 const val SPEED_LIMIT_MIN = 30
@@ -625,7 +642,25 @@ fun settingsFromJson(o: JSONObject): LauncherSettings {
         } ?: d.modernCards,
         edgeSwipe = o.optBoolean("edgeSwipe", d.edgeSwipe),
         internetBadge = o.optBoolean("internetBadge", d.internetBadge),
-        customDriveLayout = o.optBoolean("customDriveLayout", d.customDriveLayout)
+        customDriveLayout = o.optBoolean("customDriveLayout", d.customDriveLayout),
+        dashMapSide = o.enumOr("dashMapSide", d.dashMapSide),
+        dashMapWidth = o.intFrom("dashMapWidth", d.dashMapWidth, DASH_MAP_WIDTHS),
+        mapLook = o.enumOr("mapLook", d.mapLook),
+        mapAutoZoom = o.optBoolean("mapAutoZoom", d.mapAutoZoom),
+        mapPlaces = o.optBoolean("mapPlaces", d.mapPlaces),
+        mapCameras = o.optBoolean("mapCameras", d.mapCameras),
+        dashCards = o.optJSONArray("dashCards")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val n = arr.optString(i)
+                CardType.entries.firstOrNull { it.name == n }
+            }.distinct().take(MAX_DASH_CARDS)
+        } ?: d.dashCards,
+        dashPlacesRow = o.optBoolean("dashPlacesRow", d.dashPlacesRow),
+        navCard = o.optBoolean("navCard", d.navCard),
+        mapsStrip = o.optBoolean("mapsStrip", d.mapsStrip),
+        stripSide = o.enumOr("stripSide", d.stripSide),
+        stripSpeed = o.optBoolean("stripSpeed", d.stripSpeed),
+        stripMusic = o.optBoolean("stripMusic", d.stripMusic)
     )
 }
 
@@ -729,4 +764,17 @@ fun settingsToJson(s: LauncherSettings): JSONObject = JSONObject().apply {
     put("edgeSwipe", s.edgeSwipe)
     put("internetBadge", s.internetBadge)
     put("customDriveLayout", s.customDriveLayout)
+    put("dashMapSide", s.dashMapSide.name)
+    put("dashMapWidth", s.dashMapWidth)
+    put("mapLook", s.mapLook.name)
+    put("mapAutoZoom", s.mapAutoZoom)
+    put("mapPlaces", s.mapPlaces)
+    put("mapCameras", s.mapCameras)
+    put("dashCards", JSONArray().apply { s.dashCards.forEach { put(it.name) } })
+    put("dashPlacesRow", s.dashPlacesRow)
+    put("navCard", s.navCard)
+    put("mapsStrip", s.mapsStrip)
+    put("stripSide", s.stripSide.name)
+    put("stripSpeed", s.stripSpeed)
+    put("stripMusic", s.stripMusic)
 }

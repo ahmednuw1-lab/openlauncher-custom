@@ -273,6 +273,10 @@ class MainActivity : ComponentActivity() {
             }
             val net = if (showsNet) core.net.state.collectAsStateWithLifecycle().value else NetState.NOT_CONNECTED
             val location by vm.engine.location.collectAsStateWithLifecycle()
+            // 1.4: the next turn from Google Maps, and whether a map is on the home screen
+            val navTurn by MediaService.nav.collectAsStateWithLifecycle()
+            val usesMap = s.homeStyle == HomeStyle.DASHBOARD || (s.homeStyle == HomeStyle.CUSTOM &&
+                (custom.widgets + customDrive.widgets).any { it.type == WidgetType.MAP })
 
             // A language change needs the screen rebuilt with the new resources
             LaunchedEffect(s.language) {
@@ -328,7 +332,10 @@ class MainActivity : ComponentActivity() {
                                         dueReminders = dueReminders,
                                         oilLeftKm = if (s.oilReminder) s.oilInterval - (odometer - oilAt) else null,
                                         net = net, favOpen = favOpen,
-                                        custom = custom, customDrive = customDrive, customEdit = customEdit
+                                        custom = custom, customDrive = customDrive, customEdit = customEdit,
+                                        night = sun?.let { (rise, set) -> val now = System.currentTimeMillis(); now < rise || now > set } ?: false,
+                                        cameras = if (usesMap) core.cameras.all else emptyList(),
+                                        nav = if (s.navCard) navTurn else null
                                     ),
                                     homeActions
                                 )
@@ -432,6 +439,7 @@ class MainActivity : ComponentActivity() {
             openInternet = { openInternetPanel() },
             openPlace = { vm.closeFavs(); vm.navigateTo(it) },
             openShortcut = { vm.openShortcut(it) },
+            openNavApp = { vm.openNavApp() },
             openDisplaySettings = { vm.openSettingsPage(SettingsPage.DISPLAY); vm.openSettings() },
             startCustomEdit = { vm.startCustomEdit() },
             endCustomEdit = { vm.endCustomEdit() },
