@@ -22,7 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.NearMe
-import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
@@ -209,7 +209,7 @@ fun CarMap(st: HomeState, act: HomeActions, compact: Boolean, modifier: Modifier
                     val cone = Path().apply {
                         moveTo(me.x, me.y)
                         lineTo(me.x - 40.dp.toPx(), me.y - 70.dp.toPx())
-                        quadraticBezierTo(me.x, me.y - 86.dp.toPx(), me.x + 40.dp.toPx(), me.y - 70.dp.toPx())
+                        quadraticTo(me.x, me.y - 86.dp.toPx(), me.x + 40.dp.toPx(), me.y - 70.dp.toPx())
                         close()
                     }
                     drawPath(cone, st.accent.copy(alpha = 0.16f))
@@ -269,6 +269,8 @@ fun CarMap(st: HomeState, act: HomeActions, compact: Boolean, modifier: Modifier
         Text(
             stringResource(R.string.map_credit),
             fontSize = 10.sp,
+            // Latin text: keep "©" in front in Arabic too
+            style = androidx.compose.ui.text.TextStyle(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
             color = if (dark) Color(0xFFC9D0DC) else Color(0xFF333333),
             modifier = Modifier
                 .align(AbsoluteAlignment.BottomRight)
@@ -349,6 +351,6 @@ fun NextTurnCard(nav: NavInfo?, accent: Color, onOpen: () -> Unit, modifier: Mod
                 if (nav.sub.isNotBlank()) Text(nav.sub, fontSize = 13.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        if (!compact && nav != null) Icon(Icons.Rounded.OpenInNew, stringResource(R.string.nav_open_maps), tint = TextSecondary, modifier = Modifier.size(22.dp))
+        if (!compact && nav != null) Icon(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.nav_open_maps), tint = TextSecondary, modifier = Modifier.size(22.dp))
     }
 }

@@ -18,7 +18,11 @@ STRIP='{"homeStyle":"DASHBOARD","favCount":9,"accent":4283403519,"mapsStrip":tru
 ML='<string name="custom_layout">{"v":1,"grid":"NORMAL","pages":1,"widgets":[{"id":"m","type":"MAP","p":0,"c":0,"r":0,"w":4,"h":4,"style":"GLASS"},{"id":"n","type":"NEXT_TURN","p":0,"c":4,"r":0,"w":3,"h":1,"style":"GLASS"},{"id":"k","type":"CLOCK","p":0,"c":7,"r":0,"w":1,"h":1,"style":"CLEAR"},{"id":"s","type":"SPEED","p":0,"c":4,"r":1,"w":2,"h":2,"style":"GLASS"},{"id":"u","type":"MUSIC","p":0,"c":6,"r":1,"w":2,"h":2,"style":"TINTED"},{"id":"h","type":"SHORTCUT","p":0,"c":4,"r":3,"w":2,"h":1,"style":"GLASS","value":"place:home1"},{"id":"a","type":"ALL_APPS","p":0,"c":7,"r":3,"w":1,"h":1,"style":"GLASS"}]}</string>'
 
 # A turn from "Google Maps" (test builds take command-line notifications as Google Maps')
-nav_on() { adb shell "cmd notification post -t '300 m' -I 'res:android:drawable/ic_menu_directions' carhome-nav 'Turn right onto King Fahd Rd'" || true; sleep 3; }
+nav_on() {
+  adb shell "cmd notification post -t '300 m' -I '@android:drawable/ic_menu_directions' carhome-nav 'Turn right onto King Fahd Rd'" \
+    || adb shell "cmd notification post -t '300 m' carhome-nav 'Turn right onto King Fahd Rd'" || true
+  sleep 3
+}
 # Stand still at the place the other screenshots use, long enough for the map to load
 here() { for i in 1 2 3 4 5 6; do adb emu geo fix 49.5920 25.3833 150 8 0; sleep 3; done; }
 
@@ -72,7 +76,8 @@ prefs "$STRIP" "$APPS7" "$BOOT" "$SEEN"
 start
 here
 nav_on
-OTHER=$(echo "$ALL" | grep -m1 -E 'maps' || echo "$ALL" | grep -m1 -E 'settings' || echo "com.android.settings")
+# Android's Settings app stands in for Google Maps (which opens on a sign-in page in the emulator)
+OTHER=com.android.settings
 adb shell monkey -p "$OTHER" -c android.intent.category.LAUNCHER 1 || true
 sleep 8
 shot 81-strip-over-other-app
