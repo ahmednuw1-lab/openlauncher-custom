@@ -346,9 +346,11 @@ fun NextTurnCard(nav: NavInfo?, accent: Color, onOpen: () -> Unit, modifier: Mod
                 Text(stringResource(R.string.nav_none), fontSize = if (compact) 16.sp else 18.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1)
                 Text(stringResource(R.string.nav_none_hint), fontSize = 13.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             } else {
-                if (nav.title.isNotBlank()) Text(nav.title, fontSize = if (compact) 22.sp else 30.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (nav.text.isNotBlank()) Text(nav.text, fontSize = if (compact) 14.sp else 16.sp, color = TextPrimary, maxLines = if (compact) 1 else 2, overflow = TextOverflow.Ellipsis)
-                if (nav.sub.isNotBlank()) Text(nav.sub, fontSize = 13.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Google Maps' own words, in either language: each line takes its direction from its text ("300 m" stays "300 m" in Arabic)
+                val own = androidx.compose.ui.text.TextStyle(textDirection = androidx.compose.ui.text.style.TextDirection.Content)
+                if (nav.title.isNotBlank()) Text(nav.title, style = own, fontSize = if (compact) 22.sp else 30.sp, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (nav.text.isNotBlank()) Text(nav.text, style = own, fontSize = if (compact) 14.sp else 16.sp, color = TextPrimary, maxLines = if (compact) 1 else 2, overflow = TextOverflow.Ellipsis)
+                if (nav.sub.isNotBlank()) Text(nav.sub, style = own, fontSize = 13.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         if (!compact && nav != null) Icon(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.nav_open_maps), tint = TextSecondary, modifier = Modifier.size(22.dp))

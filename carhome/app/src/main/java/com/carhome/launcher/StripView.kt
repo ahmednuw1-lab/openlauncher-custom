@@ -77,8 +77,8 @@ class StripView(context: Context, private val listener: Listener) : View(context
         val red = Color.parseColor("#EF4444")
         val card = Color.argb(20, 255, 255, 255)
 
-        // Background
-        fill.color = Color.argb(245, 9, 13, 24)
+        // Background: fully opaque, so the app underneath never shows through
+        fill.color = Color.rgb(9, 13, 24)
         canvas.drawRect(0f, 0f, w, h, fill)
         fill.color = Color.argb(40, 255, 255, 255)
         if (onLeft) canvas.drawRect(w - d, 0f, w, h, fill) else canvas.drawRect(0f, 0f, d, h, fill)

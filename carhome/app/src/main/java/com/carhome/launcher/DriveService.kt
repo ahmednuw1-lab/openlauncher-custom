@@ -235,13 +235,17 @@ class DriveService : Service() {
             }
             return v
         }
+        // Not "layout in screen": the strip stays clear of the status and navigation bars
         val p = WindowManager.LayoutParams(
             (STRIP_DP * resources.displayMetrics.density).roundToInt(),
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply { this.gravity = gravity }
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.OPAQUE
+        ).apply {
+            this.gravity = gravity
+            if (Build.VERSION.SDK_INT >= 30) fitInsetsTypes = android.view.WindowInsets.Type.systemBars()
+        }
         val v = StripView(this, object : StripView.Listener {
             override fun home() {
                 runCatching {
