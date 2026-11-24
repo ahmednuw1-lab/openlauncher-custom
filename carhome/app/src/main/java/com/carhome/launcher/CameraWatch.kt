@@ -25,6 +25,8 @@ class CameraWatch(private val core: Core) {
 
     private val alerter = CameraAlerter()
     @Volatile private var cameras: List<SpeedCamera> = emptyList()
+    /** Every camera known around the car (for the map), while camera warnings are on. */
+    val all: List<SpeedCamera> get() = if (core.settings.value.speedCameras) cameras else emptyList()
     private var centerLat = Double.NaN
     private var centerLon = Double.NaN
     private var lastAttemptAt = -1_000_000L

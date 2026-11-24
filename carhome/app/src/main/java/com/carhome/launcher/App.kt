@@ -57,6 +57,8 @@ class Core(val app: Application) {
     /** The box's internet connection, for the internet sign (1.3). */
     val net = NetWatch(app)
     val cameras by lazy { CameraWatch(this) }
+    /** OpenStreetMap tiles for the dashboard map and the map widget (1.4). */
+    val tiles by lazy { MapTiles(app) }
 
     fun updateSettings(block: (LauncherSettings) -> LauncherSettings): Pair<LauncherSettings, LauncherSettings> {
         val old = _settings.value

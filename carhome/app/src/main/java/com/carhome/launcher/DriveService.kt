@@ -35,6 +35,11 @@ class DriveService : Service() {
     private var bubble: BubbleView? = null
     private var params: WindowManager.LayoutParams? = null
     private var hiddenUntilNextDrive = false
+    // The strip beside Google Maps (1.4)
+    private var strip: StripView? = null
+    private var stripParams: WindowManager.LayoutParams? = null
+    /** The route the strip was hidden for: it stays hidden until that route ends */
+    private var stripHiddenFor: String? = null
     private var seenCarStarts = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -61,6 +66,7 @@ class DriveService : Service() {
     override fun onDestroy() {
         loop?.cancel()
         removeBubble()
+        removeStrip()
         if (::core.isInitialized) core.engine.detach(OWNER)
         super.onDestroy()
     }
@@ -97,7 +103,9 @@ class DriveService : Service() {
             hiddenUntilNextDrive = false
         }
         val e = core.engine
-        val want = s.bubble && Settings.canDrawOverlays(this) && !core.uiVisible.value &&
+        val stripShown = renderStrip(s)
+        // The strip already shows the speed: no bubble beside it
+        val want = s.bubble && Settings.canDrawOverlays(this) && !core.uiVisible.value && !stripShown &&
             !hiddenUntilNextDrive && (!s.bubbleOnlyMoving || e.moving.value)
         if (!want) { removeBubble(); return }
         val v = ensureBubble(s)
@@ -186,6 +194,85 @@ class DriveService : Service() {
         core.prefs.bubbleY = p.y
     }
 
+    // ── Strip beside Google Maps (1.4) ────────────────────────────────────────
+
+    /** Shows, updates or removes the strip; true while it's on screen. */
+    private fun renderStrip(s: LauncherSettings): Boolean {
+        val nav = MediaService.nav.value
+        if (nav == null) stripHiddenFor = null
+        val want = s.mapsStrip && nav != null && Settings.canDrawOverlays(this) && !core.uiVisible.value &&
+            stripHiddenFor != nav.key && (s.stripSpeed || s.stripMusic)
+        if (!want) { removeStrip(); return false }
+        val v = ensureStrip(s) ?: return false
+        val e = core.engine
+        val ctx = core.localized()
+        val mps = e.speedMps.value
+        v.homeLabel = ctx.getString(R.string.app_name)
+        v.showSpeed = s.stripSpeed
+        v.speedText = mps?.let { (if (e.speedApprox.value) "~" else "") + speedInUnit(it, s.useKmh).roundToInt() } ?: "—"
+        v.unitText = ctx.getString(if (s.useKmh) R.string.kmh else R.string.mph)
+        v.overspeed = e.overspeed.value
+        v.roadLimit = if (s.roadLimit) e.limit.value.roadLimit else null
+        val np = MediaService.nowPlaying.value
+        v.showMusic = s.stripMusic
+        v.hasSong = np != null && np.title.isNotBlank()
+        v.songTitle = np?.title.orEmpty()
+        v.songArtist = np?.artist.orEmpty()
+        v.playing = np?.isPlaying == true
+        v.accent = s.accent.toInt()
+        v.onLeft = s.stripSide == FavSide.LEFT
+        v.refresh()
+        return true
+    }
+
+    private fun ensureStrip(s: LauncherSettings): StripView? {
+        val gravity = (if (s.stripSide == FavSide.LEFT) Gravity.LEFT else Gravity.RIGHT) or Gravity.TOP
+        strip?.let { v ->
+            val p = stripParams!!
+            if (p.gravity != gravity) {
+                p.gravity = gravity
+                runCatching { wm?.updateViewLayout(v, p) }
+            }
+            return v
+        }
+        val p = WindowManager.LayoutParams(
+            (STRIP_DP * resources.displayMetrics.density).roundToInt(),
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply { this.gravity = gravity }
+        val v = StripView(this, object : StripView.Listener {
+            override fun home() {
+                runCatching {
+                    startActivity(Intent(this@DriveService, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+            }
+            override fun hide() {
+                stripHiddenFor = MediaService.nav.value?.key
+                removeStrip()
+                Toast.makeText(this@DriveService, core.localized().getString(R.string.strip_hidden), Toast.LENGTH_SHORT).show()
+            }
+            override fun previous() { MediaService.nowPlaying.value?.controller?.transportControls?.skipToPrevious() }
+            override fun next() { MediaService.nowPlaying.value?.controller?.transportControls?.skipToNext() }
+            override fun playPause() {
+                val np = MediaService.nowPlaying.value ?: return
+                if (np.isPlaying) np.controller.transportControls.pause() else np.controller.transportControls.play()
+            }
+        })
+        val added = runCatching { wm?.addView(v, p) }.isSuccess
+        if (!added) return null
+        strip = v
+        stripParams = p
+        return v
+    }
+
+    private fun removeStrip() {
+        strip?.let { runCatching { wm?.removeView(it) } }
+        strip = null
+        stripParams = null
+    }
+
     private fun removeBubble() {
         bubble?.let { runCatching { wm?.removeView(it) } }
         bubble = null
@@ -196,13 +283,15 @@ class DriveService : Service() {
         private const val OWNER = "service"
         private const val CHANNEL = "driving"
         private const val NOTIF_ID = 42
+        /** Width of the strip beside Google Maps */
+        private const val STRIP_DP = 216
 
         /** Starts or stops the service to match the settings. Call from the visible activity. */
         fun sync(context: Context) {
             val core = CarHomeApp.core(context)
             val s = core.settings.value
             val intent = Intent(context, DriveService::class.java)
-            if ((s.backgroundTracking || s.bubble) && core.engine.hasFine()) {
+            if ((s.backgroundTracking || s.bubble || s.mapsStrip) && core.engine.hasFine()) {
                 runCatching { context.startForegroundService(intent) }
             } else {
                 runCatching { context.stopService(intent) }

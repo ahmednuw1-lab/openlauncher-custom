@@ -634,4 +634,49 @@
     <string name="dua_title">Travel dua</string>
     <string name="dua_text">اللهُ أكبرُ، اللهُ أكبرُ، اللهُ أكبرُ، سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ، وَإِنَّا إِلَى رَبِّنَا لَمُنْقَلِبُونَ. اللَّهُمَّ إِنَّا نَسْأَلُكَ فِي سَفَرِنَا هَذَا الْبِرَّ وَالتَّقْوَى، وَمِنَ الْعَمَلِ مَا تَرْضَى. اللَّهُمَّ هَوِّنْ عَلَيْنَا سَفَرَنَا هَذَا وَاطْوِ عَنَّا بُعْدَهُ. اللَّهُمَّ أَنْتَ الصَّاحِبُ فِي السَّفَرِ، وَالْخَلِيفَةُ فِي الْأَهْلِ. اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنْ وَعْثَاءِ السَّفَرِ، وَكَآبَةِ الْمَنْظَرِ، وَسُوءِ الْمُنْقَلَبِ فِي الْمَالِ وَالْأَهْلِ.</string>
     <string name="dua_meaning">Allah is the Greatest (three times). Glory be to Him who has made this of service to us, for we could never have done it ourselves, and to our Lord we will surely return. O Allah, on this journey we ask You for goodness and piety, and for deeds that please You. O Allah, make this journey easy for us and shorten its distance. O Allah, You are our Companion on the journey and the Guardian of our families. O Allah, I seek refuge in You from the hardship of travel, from any sad sight, and from returning to find harm in our wealth or family.</string>
+
+    <!-- 1.4: dashboard, map and the next turn -->
+    <string name="style_dashboard">Dashboard</string>
+    <string name="style_dashboard_desc">A map with your cards beside it</string>
+    <string name="dash_home">Dashboard</string>
+    <string name="dash_map_side">Map side</string>
+    <string name="dash_side_left">Left (driver\'s side)</string>
+    <string name="dash_map_width">Map width</string>
+    <string name="dash_places_row">Places and next prayer</string>
+    <string name="dash_places_row_hint">Under the cards, while parked</string>
+    <string name="dash_cards">Cards beside the map</string>
+    <string name="dash_cards_hint">Up to %1$d, in this order. While driving only the first two, bigger.</string>
+    <string name="map">Map</string>
+    <string name="map_look">Map colours</string>
+    <string name="map_look_dark">Dark</string>
+    <string name="map_look_light">Light</string>
+    <string name="map_look_night">Dark after sunset</string>
+    <string name="map_auto_zoom">Zoom with speed</string>
+    <string name="map_auto_zoom_hint">The map goes further out the faster you drive</string>
+    <string name="map_places">My places on the map</string>
+    <string name="map_cameras">Speed cameras on the map</string>
+    <string name="map_cameras_hint">When speed camera warnings are on</string>
+    <string name="map_source_hint">Map from OpenStreetMap. Only the part on screen is downloaded (so the map server sees roughly where you are) and it\'s kept on the box for a week.</string>
+    <string name="map_waiting">Waiting for your location…</string>
+    <string name="map_zoom_in">Zoom in</string>
+    <string name="map_zoom_out">Zoom out</string>
+    <string name="map_recenter">Back to my position</string>
+    <string name="map_where_to">Where to? Open Google Maps</string>
+    <string name="nav_settings">While Google Maps navigates</string>
+    <string name="nav_card">Next turn card</string>
+    <string name="nav_card_hint">The next turn and arrival time, read from Google Maps\' notification</string>
+    <string name="nav_none">No route</string>
+    <string name="nav_none_hint">Start a route in Google Maps</string>
+    <string name="nav_open_maps">Open Google Maps</string>
+    <string name="strip_on">Strip over Google Maps</string>
+    <string name="strip_hint">Speed and music beside Google Maps while it navigates</string>
+    <string name="strip_side">Strip side</string>
+    <string name="strip_speed">Speed and limit</string>
+    <string name="strip_music">Music</string>
+    <string name="strip_home">Back to CarHome</string>
+    <string name="strip_hide">Hide until the route ends</string>
+    <string name="strip_hidden">Strip hidden until this route ends</string>
+    <string name="w_map">Map</string>
+    <string name="w_next_turn">Next turn</string>
+    <string name="map_credit" translatable="false">© OpenStreetMap contributors</string>
 </resources>

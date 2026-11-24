@@ -5,8 +5,8 @@ import org.json.JSONObject
 
 // ── Home screen styles (1.3) ─────────────────────────────────────────────────
 
-/** Which home screen CarHome shows: tiles and cards, the calm modern one, or the user's own grid. */
-enum class HomeStyle { CLASSIC, MODERN, CUSTOM }
+/** Which home screen CarHome shows: tiles and cards, the calm modern one, the user's own grid, or a map dashboard (1.4). */
+enum class HomeStyle { CLASSIC, MODERN, CUSTOM, DASHBOARD }
 
 /** Modern home: what fills the space with the clock. SHORTCUTS = places, a suggestion and reminders under it; TODAY = a "Today" panel beside it. */
 enum class ModernFill { SHORTCUTS, TODAY }
@@ -29,7 +29,9 @@ enum class GridSize(val cols: Int, val rows: Int) { SMALL(6, 3), NORMAL(8, 4), L
 
 enum class WidgetType {
     CLOCK, DATE, SPEED, MUSIC, WEATHER, PRAYER, TRIP, CAR, TODAY,
-    SHORTCUT, FAVORITES, ALL_APPS, SETTINGS, INTERNET, QIBLA, DUA
+    SHORTCUT, FAVORITES, ALL_APPS, SETTINGS, INTERNET, QIBLA, DUA,
+    /** 1.4: the map, and the next turn while Google Maps navigates */
+    MAP, NEXT_TURN
 }
 
 /** A widget's own card look: glass, solid, no card at all, or tinted with the accent colour. */
@@ -81,6 +83,8 @@ object CustomGrid {
         WidgetType.SETTINGS, WidgetType.INTERNET -> listOf(1 to 1, 2 to 1)
         WidgetType.QIBLA -> listOf(1 to 1, 2 to 2)
         WidgetType.DUA -> listOf(2 to 1, 3 to 1, 4 to 1, 4 to 2)
+        WidgetType.MAP -> listOf(2 to 2, 3 to 2, 3 to 3, 4 to 2, 4 to 3, 4 to 4, 5 to 3, 5 to 4, 5 to 5, 6 to 3, 6 to 4)
+        WidgetType.NEXT_TURN -> listOf(2 to 1, 3 to 1, 4 to 1, 2 to 2, 3 to 2)
     }
 
     /** The size a new widget gets when there is room for it. */
@@ -88,7 +92,8 @@ object CustomGrid {
         WidgetType.CLOCK, WidgetType.MUSIC, WidgetType.TODAY -> 3 to 2
         WidgetType.SPEED, WidgetType.CAR -> 2 to 2
         WidgetType.WEATHER, WidgetType.DATE -> 2 to 1
-        WidgetType.TRIP, WidgetType.DUA -> 3 to 1
+        WidgetType.TRIP, WidgetType.DUA, WidgetType.NEXT_TURN -> 3 to 1
+        WidgetType.MAP -> 4 to 3
         else -> 1 to 1
     }
 

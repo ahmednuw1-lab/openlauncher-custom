@@ -152,7 +152,14 @@ data class HomeState(
     val favOpen: Boolean = false,
     val custom: CustomLayout = CustomLayout(),
     val customDrive: CustomLayout = CustomLayout(),
-    val customEdit: CustomEdit? = null
+    val customEdit: CustomEdit? = null,
+    // 1.4: dashboard and map
+    /** The sun is down (for the map's "with night" look) */
+    val night: Boolean = false,
+    /** Speed cameras known around the car (empty unless camera warnings are on) */
+    val cameras: List<com.carhome.launcher.SpeedCamera> = emptyList(),
+    /** The next turn while Google Maps navigates */
+    val nav: com.carhome.launcher.NavInfo? = null
 )
 
 /** What the home screen can ask for. */
@@ -193,7 +200,10 @@ class HomeActions(
     val undoCustom: () -> Unit = {},
     val addWidget: (WidgetType, Pair<Int, Int>?, ClockFace) -> Unit = { _, _, _ -> },
     val pickForWidget: (Boolean, String) -> Unit = { _, _ -> },
-    val setCustomGrid: (GridSize) -> Unit = {}
+    val setCustomGrid: (GridSize) -> Unit = {},
+    // 1.4: dashboard
+    /** Google Maps (to look for a place, or back to the route) */
+    val openNavApp: () -> Unit = {}
 )
 
 @Composable
@@ -201,6 +211,7 @@ fun HomeScreen(st: HomeState, act: HomeActions) {
     when (st.settings.homeStyle) {
         HomeStyle.MODERN -> { ModernHome(st, act); return }
         HomeStyle.CUSTOM -> { CustomHome(st, act); return }
+        HomeStyle.DASHBOARD -> { DashboardHome(st, act); return }
         HomeStyle.CLASSIC -> Unit
     }
     val s = st.settings

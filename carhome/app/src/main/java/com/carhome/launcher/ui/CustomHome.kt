@@ -39,6 +39,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Navigation
+import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Add
@@ -406,6 +408,8 @@ private fun WidgetContent(w: Widget, driving: Boolean, st: HomeState, act: HomeA
                 WidgetType.INTERNET -> InternetWidget(st.net, act.openInternet, m)
                 WidgetType.QIBLA -> QiblaWidget(st, m)
                 WidgetType.DUA -> DuaWidget(st.accent, m)
+                WidgetType.MAP -> CarMap(st, act, compact = maxWidth < 420.dp, modifier = m)
+                WidgetType.NEXT_TURN -> NextTurnCard(st.nav, st.accent, act.openNavApp, m, compact = maxHeight < 120.dp || maxWidth < 300.dp)
             }
         }
     }
@@ -1088,7 +1092,7 @@ private enum class LibCat(val label: Int) {
 
 private fun categoryOf(t: WidgetType): LibCat = when (t) {
     WidgetType.CLOCK, WidgetType.DATE, WidgetType.WEATHER -> LibCat.TIME
-    WidgetType.SPEED, WidgetType.TRIP -> LibCat.DRIVING
+    WidgetType.SPEED, WidgetType.TRIP, WidgetType.MAP, WidgetType.NEXT_TURN -> LibCat.DRIVING
     WidgetType.MUSIC -> LibCat.MEDIA
     WidgetType.PRAYER, WidgetType.QIBLA, WidgetType.DUA -> LibCat.PRAYER
     WidgetType.CAR, WidgetType.TODAY -> LibCat.CAR
@@ -1113,6 +1117,8 @@ internal fun widgetName(t: WidgetType): Int = when (t) {
     WidgetType.INTERNET -> R.string.w_internet
     WidgetType.QIBLA -> R.string.w_qibla
     WidgetType.DUA -> R.string.dua_title
+    WidgetType.MAP -> R.string.w_map
+    WidgetType.NEXT_TURN -> R.string.w_next_turn
 }
 
 internal fun widgetIcon(t: WidgetType): ImageVector = when (t) {
@@ -1132,6 +1138,8 @@ internal fun widgetIcon(t: WidgetType): ImageVector = when (t) {
     WidgetType.INTERNET -> Icons.Rounded.Wifi
     WidgetType.QIBLA -> Icons.Rounded.Explore
     WidgetType.DUA -> Icons.Rounded.MenuBook
+    WidgetType.MAP -> Icons.Rounded.Map
+    WidgetType.NEXT_TURN -> Icons.Rounded.Navigation
 }
 
 @Composable
