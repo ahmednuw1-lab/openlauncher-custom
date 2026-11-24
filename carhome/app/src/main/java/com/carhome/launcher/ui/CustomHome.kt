@@ -715,11 +715,7 @@ private fun IconWidget(icon: ImageVector, label: String, accent: Color, onClick:
 
 @Composable
 private fun InternetWidget(net: NetState, onClick: () -> Unit, modifier: Modifier) {
-    val (tint, label) = when (net) {
-        NetState.ONLINE -> OkGreen to R.string.net_online
-        NetState.NO_INTERNET -> WarnAmber to R.string.net_no_internet
-        NetState.OFFLINE -> TextSecondary to R.string.net_offline
-    }
+    val look = netLook(net)
     BoxWithConstraints(modifier.glass().clickable(onClick = onClick).padding(8.dp), contentAlignment = Alignment.Center) {
         val showLabel = maxHeight >= 84.dp
         val button = minOf(maxHeight - (if (showLabel) 26.dp else 0.dp), 52.dp)
@@ -727,7 +723,7 @@ private fun InternetWidget(net: NetState, onClick: () -> Unit, modifier: Modifie
             InternetButton(net, onClick, button)
             if (showLabel) {
                 Spacer(Modifier.height(6.dp))
-                Text(stringResource(label), fontSize = 13.sp, color = tint, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(look.label), fontSize = 13.sp, color = look.tint, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Everything stays HTTPS-only (Android's default) except the internet sign's check:
+    an empty plain-HTTP answer, the same check Android itself makes. It must be plain HTTP
+    so a Wi-Fi sign-in page or a carrier's top-up page can show itself instead.
+    Nothing is sent or read beyond the answer code.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">connectivitycheck.gstatic.com</domain>
+        <domain includeSubdomains="false">cp.cloudflare.com</domain>
+    </domain-config>
+</network-security-config>

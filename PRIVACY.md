@@ -1,6 +1,6 @@
 # CarHome — Privacy policy / سياسة الخصوصية
 
-_Last updated: 10 November 2026_
+_Last updated: 24 November 2026_
 
 ## English
 
@@ -17,6 +17,7 @@ CarHome is a home screen (launcher) for Android car boxes. It has no accounts, n
 - **Automatic road speed limit:** your position rounded to about 100 m is sent to the OpenStreetMap Overpass service (overpass-api.de).
 - **Speed camera warnings:** your position rounded to about 1 km is sent to the same Overpass service.
 - **Update check:** CarHome asks GitHub (github.com) whether a newer version exists, and downloads it only when you tap Update. No personal data is sent.
+- **Internet sign:** while the sign is on screen, CarHome asks for an empty answer from Google's connectivity check (connectivitycheck.gstatic.com), or Cloudflare's (cp.cloudflare.com) if that fails, about every 30 seconds. It is the same check Android itself makes. Nothing about you is sent.
 
 These requests are repeated while you drive: road limits as you move along the road, and speed cameras after about every 2 km (at most once a minute). Weather is refreshed from time to time. Even rounded positions, sent again and again, can show a service your approximate route, and it can link them through your internet address. Turn a feature off in Settings to stop its requests.
 
@@ -52,6 +53,7 @@ CarHome واجهة رئيسية (Launcher) لأجهزة السيارة بنظا�
 - **حد السرعة التلقائي للطريق:** موقعك مقرّبًا إلى حوالي 100 م يُرسل إلى خدمة OpenStreetMap Overpass.
 - **تنبيه كاميرات السرعة:** موقعك مقرّبًا إلى حوالي 1 كم يُرسل إلى نفس خدمة Overpass.
 - **التحقق من التحديثات:** يسأل CarHome موقع GitHub عن وجود إصدار أحدث، ولا يحمّله إلا عندما تضغط "تحديث". لا تُرسل أي بيانات شخصية.
+- **علامة الإنترنت:** ما دامت العلامة ظاهرة على الشاشة، يطلب CarHome ردًّا فارغًا من خدمة فحص الاتصال لدى Google ‏(connectivitycheck.gstatic.com)، أو لدى Cloudflare ‏(cp.cloudflare.com) إذا لم تردّ الأولى، كل 30 ثانية تقريبًا. هو نفس الفحص الذي يجريه أندرويد بنفسه، ولا يُرسل أي شيء عنك.
 
 هذه الطلبات تتكرر أثناء القيادة: حدود الطريق كلما تقدّمت في الطريق، وكاميرات السرعة بعد كل 2 كم تقريبًا (مرة في الدقيقة على الأكثر)، والطقس يُحدَّث من وقت لآخر. حتى المواقع المقرّبة، إذا أُرسلت مرة بعد مرة، قد تُظهر للخدمة مسارك التقريبي، ويمكنها ربطها ببعضها عبر عنوان الإنترنت لجهازك. أوقف الميزة من الإعدادات لإيقاف طلباتها.
 

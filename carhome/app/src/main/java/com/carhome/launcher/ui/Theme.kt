@@ -65,6 +65,12 @@ val BgBottom = Color(0xFF111A2E)
 val AlertRed = Color(0xFFEF4444)
 val OkGreen = Color(0xFF22C55E)
 val WarnAmber = Color(0xFFF59E0B)
+/** Internet sign: mobile data or the phone's hotspot */
+val InfoBlue = Color(0xFF3B82F6)
+/** Internet sign: a sign-in or carrier page wants something first */
+val SignInPurple = Color(0xFFA855F7)
+/** Internet sign: checking a network just joined */
+val CheckingBlue = Color(0xFF93C5FD)
 
 /**
  * The look the user chose in Settings → Display: how solid the cards are, how

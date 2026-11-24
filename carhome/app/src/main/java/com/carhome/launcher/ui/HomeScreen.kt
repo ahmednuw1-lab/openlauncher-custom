@@ -148,7 +148,7 @@ data class HomeState(
     val dueReminders: List<DueStatus> = emptyList(),
     /** Km left to the next oil change, when the oil reminder is on */
     val oilLeftKm: Double? = null,
-    val net: NetState = NetState.OFFLINE,
+    val net: NetState = NetState.NOT_CONNECTED,
     val favOpen: Boolean = false,
     val custom: CustomLayout = CustomLayout(),
     val customDrive: CustomLayout = CustomLayout(),
@@ -345,7 +345,7 @@ private fun MainColumn(st: HomeState, act: HomeActions, modifier: Modifier) {
                 )
             }
             GlassIconButton(Icons.Rounded.Apps, stringResource(R.string.all_apps), act.openApps)
-            // Internet sign beside Settings: green online, amber without internet, grey offline; tap to pick Wi-Fi
+            // Internet sign beside Settings (its colours are in InternetButton); tap to pick Wi-Fi
             if (s.internetBadge) InternetButton(st.net, act.openInternet)
             GlassIconButton(Icons.Rounded.Settings, stringResource(R.string.settings), act.openSettings)
         }
