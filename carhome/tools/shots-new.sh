@@ -15,7 +15,7 @@ DASHLIGHT='{"homeStyle":"DASHBOARD","favCount":9,"accent":4283403519,"mapLook":"
 CUSTH='{"homeStyle":"CUSTOM","favCount":9,"accent":4283403519}'
 STRIP='{"homeStyle":"DASHBOARD","favCount":9,"accent":4283403519,"mapsStrip":true,"backgroundTracking":true}'
 # 8x4 grid: the map at 4x4 on the left, the next turn 3x1, speed and music, places
-ML='<string name="custom_layout">{"v":1,"grid":"NORMAL","pages":1,"widgets":[{"id":"m","type":"MAP","p":0,"c":0,"r":0,"w":4,"h":4,"style":"GLASS"},{"id":"n","type":"NEXT_TURN","p":0,"c":4,"r":0,"w":3,"h":1,"style":"GLASS"},{"id":"k","type":"CLOCK","p":0,"c":7,"r":0,"w":1,"h":1,"style":"CLEAR"},{"id":"s","type":"SPEED","p":0,"c":4,"r":1,"w":2,"h":2,"style":"GLASS"},{"id":"u","type":"MUSIC","p":0,"c":6,"r":1,"w":2,"h":2,"style":"TINTED"},{"id":"h","type":"SHORTCUT","p":0,"c":4,"r":3,"w":2,"h":1,"style":"GLASS","value":"place:home1"},{"id":"a","type":"ALL_APPS","p":0,"c":7,"r":3,"w":1,"h":1,"style":"GLASS"}]}</string>'
+ML='<string name="custom_layout">{"v":1,"grid":"NORMAL","pages":1,"widgets":[{"id":"m","type":"MAP","p":0,"c":0,"r":0,"w":4,"h":4,"style":"GLASS"},{"id":"n","type":"NEXT_TURN","p":0,"c":4,"r":0,"w":3,"h":1,"style":"GLASS"},{"id":"k","type":"CLOCK","p":0,"c":7,"r":0,"w":1,"h":1,"style":"CLEAR"},{"id":"s","type":"SPEED","p":0,"c":4,"r":1,"w":2,"h":2,"style":"GLASS"},{"id":"u","type":"MUSIC","p":0,"c":6,"r":1,"w":2,"h":1,"style":"TINTED"},{"id":"q","type":"PRAYER","p":0,"c":6,"r":2,"w":2,"h":1,"style":"GLASS"},{"id":"h","type":"SHORTCUT","p":0,"c":4,"r":3,"w":2,"h":1,"style":"GLASS","value":"place:home1"},{"id":"a","type":"ALL_APPS","p":0,"c":7,"r":3,"w":1,"h":1,"style":"GLASS"}]}</string>'
 
 # A turn from "Google Maps" (test builds take command-line notifications as Google Maps')
 nav_on() {
@@ -76,8 +76,9 @@ prefs "$STRIP" "$APPS7" "$BOOT" "$SEEN"
 start
 here
 nav_on
-# Android's Settings app stands in for Google Maps (which opens on a sign-in page in the emulator)
-OTHER=com.android.settings
+# The Clock app stands in for Google Maps (which opens on a sign-in page in the emulator);
+# Android hides other apps' overlays on its own Settings screens, so not Settings
+OTHER=com.google.android.deskclock
 adb shell monkey -p "$OTHER" -c android.intent.category.LAUNCHER 1 || true
 sleep 8
 shot 81-strip-over-other-app
