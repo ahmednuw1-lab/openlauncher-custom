@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Is the box online? For the internet sign on the home screen -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Internet sign (1.3.3): "Wi-Fi off" versus "not connected". Normal permission, no prompt -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Install CarHome updates from GitHub (Android still asks you to confirm) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -45,6 +47,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:allowBackup="false"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:hardwareAccelerated="true"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
 

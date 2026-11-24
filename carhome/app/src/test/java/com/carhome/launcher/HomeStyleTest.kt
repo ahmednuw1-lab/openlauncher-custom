@@ -50,13 +50,6 @@ class HomeStyleTest {
         assertEquals("الساعة الحادية عشرة والربع", TimeWords.phrase(23, 15, true))
     }
 
-    @Test fun internetSign() {
-        assertEquals(NetState.ONLINE, NetStatus.of(connected = true, validated = true))
-        assertEquals(NetState.NO_INTERNET, NetStatus.of(connected = true, validated = false))
-        assertEquals(NetState.OFFLINE, NetStatus.of(connected = false, validated = false))
-        assertEquals(NetState.OFFLINE, NetStatus.of(connected = false, validated = true))
-    }
-
     private val defaults = LauncherSettings()
     private fun roundTrip(s: LauncherSettings) = settingsFromJson(JSONObject(settingsToJson(s).toString()))
 

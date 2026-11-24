@@ -1,6 +1,11 @@
 package com.carhome.launcher.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -48,12 +53,18 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.NetworkCheck
 import androidx.compose.material.icons.rounded.OilBarrel
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SignalCellularAlt
+import androidx.compose.material.icons.rounded.SignalWifi0Bar
+import androidx.compose.material.icons.rounded.SignalWifiConnectedNoInternet4
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.WifiLock
 import androidx.compose.material.icons.rounded.WifiOff
+import androidx.compose.material.icons.rounded.WifiTethering
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -67,6 +78,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
@@ -217,28 +229,47 @@ private fun WeatherChip(st: HomeState, act: HomeActions) {
     }
 }
 
-/** Green with internet, amber on a network without internet, grey with none. Tap: Android's internet panel. */
+/** How the internet sign looks in each state: icon, colour and words. */
+internal data class NetLook(val icon: ImageVector, val tint: Color, val label: Int, val off: Boolean = false)
+
+internal fun netLook(net: NetState): NetLook = when (net) {
+    NetState.CONNECTED -> NetLook(Icons.Rounded.Wifi, OkGreen, R.string.net_online)
+    NetState.HOTSPOT -> NetLook(Icons.Rounded.WifiTethering, InfoBlue, R.string.net_hotspot)
+    NetState.CELLULAR -> NetLook(Icons.Rounded.SignalCellularAlt, InfoBlue, R.string.net_cellular)
+    NetState.SLOW -> NetLook(Icons.Rounded.NetworkCheck, WarnAmber, R.string.net_slow)
+    NetState.CHECKING -> NetLook(Icons.Rounded.Wifi, CheckingBlue, R.string.net_checking)
+    NetState.SIGN_IN -> NetLook(Icons.Rounded.WifiLock, SignInPurple, R.string.net_sign_in)
+    NetState.NO_INTERNET -> NetLook(Icons.Rounded.SignalWifiConnectedNoInternet4, AlertRed, R.string.net_no_internet)
+    NetState.NOT_CONNECTED -> NetLook(Icons.Rounded.SignalWifi0Bar, TextSecondary, R.string.net_offline, off = true)
+    NetState.WIFI_OFF -> NetLook(Icons.Rounded.WifiOff, TextSecondary, R.string.net_wifi_off, off = true)
+}
+
+/**
+ * The internet sign: green connected, blue on mobile data or the phone's hotspot, amber slow,
+ * purple when a page wants a sign-in, red with no internet, grey when not connected or Wi-Fi is off.
+ * Tap: Android's internet panel (or the sign-in page).
+ */
 @Composable
 internal fun InternetButton(net: NetState, onClick: () -> Unit, size: Dp = 56.dp) {
-    val (icon, tint, label) = when (net) {
-        NetState.ONLINE -> Triple(Icons.Rounded.Wifi, OkGreen, R.string.net_online)
-        NetState.NO_INTERNET -> Triple(Icons.Rounded.Wifi, WarnAmber, R.string.net_no_internet)
-        NetState.OFFLINE -> Triple(Icons.Rounded.WifiOff, TextSecondary, R.string.net_offline)
-    }
+    val look = netLook(net)
     val interaction = remember { MutableInteractionSource() }
     val scale = rememberPressScale(interaction)
-    val off = net == NetState.OFFLINE
+    // Checking a network just joined: the sign breathes until the answer comes
+    val pulse = if (net == NetState.CHECKING) {
+        val t = rememberInfiniteTransition(label = "net")
+        t.animateFloat(0.35f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "netPulse").value
+    } else 1f
     Box(
         modifier = Modifier
             .size(size)
             .scale(scale)
             .clip(CircleShape)
-            .background(if (off) GlassFill else tint.copy(alpha = 0.16f))
-            .border(1.dp, if (off) GlassStroke else tint.copy(alpha = 0.45f), CircleShape)
+            .background(if (look.off) GlassFill else look.tint.copy(alpha = 0.16f))
+            .border(1.dp, if (look.off) GlassStroke else look.tint.copy(alpha = 0.45f), CircleShape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, stringResource(label), tint = tint, modifier = Modifier.size(size * 0.44f))
+        Icon(look.icon, stringResource(look.label), tint = look.tint, modifier = Modifier.size(size * 0.44f).alpha(pulse))
     }
 }
 

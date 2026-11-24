@@ -265,7 +265,13 @@ class MainActivity : ComponentActivity() {
             val customDrive by vm.customDriveLayout.collectAsStateWithLifecycle()
             val customEdit by vm.customEdit.collectAsStateWithLifecycle()
             val dueReminders by vm.dueReminders.collectAsStateWithLifecycle()
-            val net by core.net.state.collectAsStateWithLifecycle()
+            // The internet sign is checked only while it is on screen (see NetWatch)
+            val showsNet = when (s.homeStyle) {
+                HomeStyle.CUSTOM -> customEdit != null ||
+                    (custom.widgets + customDrive.widgets).any { it.type == WidgetType.INTERNET }
+                else -> s.internetBadge
+            }
+            val net = if (showsNet) core.net.state.collectAsStateWithLifecycle().value else NetState.NOT_CONNECTED
             val location by vm.engine.location.collectAsStateWithLifecycle()
 
             // A language change needs the screen rebuilt with the new resources
@@ -566,8 +572,14 @@ class MainActivity : ComponentActivity() {
         if (!opened) tryStart(appDetails())
     }
 
-    /** Android's own internet panel (Wi-Fi, mobile data) where there is one; otherwise the Wi-Fi settings. */
+    /**
+     * Android's own internet panel (Wi-Fi, mobile data) where there is one; otherwise the Wi-Fi settings.
+     * When a page wants something first (Wi-Fi sign-in, carrier top-up), the browser opens it instead.
+     */
     private fun openInternetPanel() {
+        if (core.net.state.value == NetState.SIGN_IN &&
+            tryStart(Intent(Intent.ACTION_VIEW, Uri.parse(NetStatus.CHECK_URLS.first())))
+        ) return
         val opened = (Build.VERSION.SDK_INT >= 29 && tryStart(Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY))) ||
             tryStart(Intent(Settings.ACTION_WIFI_SETTINGS)) ||
             tryStart(Intent(Settings.ACTION_WIRELESS_SETTINGS))
